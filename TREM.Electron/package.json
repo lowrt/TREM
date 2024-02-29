@@ -79,7 +79,7 @@
     "@turf/circle": "^6.5.0",
     "axios": "^1.6.4",
     "bytenode": "^1.5.3",
-    "chokidar": "^3.5.3",
+    "chokidar": "^3.6.0",
     "discord.js": "14.14.1",
     "echarts": "^5.4.3",
     "electron-common-ipc": "^16.0.4",
