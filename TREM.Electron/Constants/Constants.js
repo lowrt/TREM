@@ -332,7 +332,7 @@ const Constants = Object.freeze({
 			type  : "string",
 			value : "",
 		},
-		"exptech.pass": {
+		"exptech.key": {
 			type  : "string",
 			value : "",
 		},
@@ -480,25 +480,13 @@ const Constants = Object.freeze({
 			type  : "string",
 			value : "",
 		},
-		"api.key": {
-			type  : "string",
-			value : "",
-		},
-		"api.key.Hide": {
-			type  : "toggle",
-			value : true,
-		},
 		"rtw.key.only": {
 			type  : "toggle",
 			value : true,
 		},
-		"rtw.api.key": {
+		"rtw.exptech.key": {
 			type  : "string",
 			value : "",
-		},
-		"rtw.api.key.Hide": {
-			type  : "toggle",
-			value : true,
 		},
 		"dev.mode": {
 			type  : "toggle",

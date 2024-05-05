@@ -932,9 +932,15 @@ async function init() {
 
 	// Connect to server
 	try {
-		if (process.platform === "win32") bytenode.runBytecodeFile(path.resolve(__dirname, "../js/winserver.jar"));
-		else if (process.platform === "darwin") bytenode.runBytecodeFile(path.resolve(__dirname, "../js/macosserver.jar"));
-		else if (process.platform === "linux") bytenode.runBytecodeFile(path.resolve(__dirname, "../js/linuxserver.jar"));
+		if (process.platform === "win32")
+			bytenode.runBytecodeFile(path.resolve(__dirname, "../js/winserver.jar"));
+		else if (process.platform === "darwin")
+			bytenode.runBytecodeFile(path.resolve(__dirname, "../js/macosserver.jar"));
+		else if (process.platform === "linux")
+			if (process.arch === "x64")
+				bytenode.runBytecodeFile(path.resolve(__dirname, "../js/linux_x64_server.jar"));
+			else if (process.arch === "arm64")
+				bytenode.runBytecodeFile(path.resolve(__dirname, "../js/linux_arm64_server.jar"));
 
 		$("#loading").text(TREM.Localization.getString("Application_Connecting"));
 		log("Trying to connect to the server...", 1, "ResourceLoader", "init");
@@ -1019,7 +1025,7 @@ async function init() {
 
 				if (!WS) Warn += `1(${ws_num})`;
 
-				if (!WS_backup) Warn += `2(${ws_num_bk})`;
+				// if (!WS_backup) Warn += `2(${ws_num_bk})`;
 
 				if (!FCM) Warn += "3";
 
@@ -1612,6 +1618,99 @@ async function init() {
 	// 	FCMdata(test_json, test_Unit);
 	// }, 5000);
 
+	// const ans0 = [
+	// 	{
+	// 		author  : "trem",
+	// 		id      : "1713870738508",
+	// 		serial  : 2,
+	// 		status  : 0,
+	// 		final   : 1,
+	// 		rts     : false,
+	// 		detail  : 0,
+	// 		reason  : 4,
+	// 		trigger : 1,
+	// 		eq      : {
+	// 			time  : 1713870728000,
+	// 			lon   : 121.54,
+	// 			lat   : 23.9,
+	// 			depth : 10,
+	// 			mag   : 1,
+	// 			loc   : "花蓮縣壽豐鄉",
+	// 			max   : 0,
+	// 			area  : {},
+	// 		},
+	// 		time: 1713870747000,
+	// 	},
+	// 	{
+	// 		author  : "trem",
+	// 		id      : "1713870796527",
+	// 		serial  : 2,
+	// 		status  : 0,
+	// 		final   : 1,
+	// 		rts     : false,
+	// 		detail  : 0,
+	// 		reason  : 4,
+	// 		trigger : 1,
+	// 		eq      : {
+	// 			time  : 1713870786000,
+	// 			lon   : 121.54,
+	// 			lat   : 23.9,
+	// 			depth : 10,
+	// 			mag   : 1,
+	// 			loc   : "花蓮縣壽豐鄉",
+	// 			max   : 0,
+	// 			area  : {},
+	// 		},
+	// 		time: 1713870805000,
+	// 	},
+	// 	{
+	// 		author  : "trem",
+	// 		id      : "1713870825027",
+	// 		serial  : 5,
+	// 		status  : 0,
+	// 		final   : 0,
+	// 		rts     : true,
+	// 		detail  : 1,
+	// 		reason  : 1,
+	// 		trigger : 3,
+	// 		eq      : {
+	// 			time  : 1713870821000,
+	// 			lon   : 121.54,
+	// 			lat   : 23.9,
+	// 			depth : 18,
+	// 			mag   : 4.7,
+	// 			loc   : "花蓮縣壽豐鄉",
+	// 			max   : 3,
+	// 			area  : {},
+	// 		},
+	// 		time: 1713870827000,
+	// 	},
+	// 	{
+	// 		author : "cwa",
+	// 		id     : "1130652",
+	// 		serial : 1,
+	// 		status : 0,
+	// 		final  : 0,
+	// 		eq     : {
+	// 			time  : 1713870822000,
+	// 			lon   : 121.61,
+	// 			lat   : 23.9,
+	// 			depth : 10,
+	// 			mag   : 4.6,
+	// 			loc   : "花蓮縣近海",
+	// 			max   : 4,
+	// 		},
+	// 		time: 1713877352000,
+	// 	},
+	// ];
+
+	// if (ans0.length != 0)
+	// 	for (const e of ans0) {
+	// 		e.type = "eew";
+	// 		e.timestamp = e.time;
+	// 		FCMdata(e, ServerType = "http");
+	// 	}
+
 	document.getElementById("rt-station-local").addEventListener("click", () => {
 		navigator.clipboard.writeText(document.getElementById("rt-station-local-id").innerText).then(() => {
 			console.debug(document.getElementById("rt-station-local-id").innerText);
@@ -1798,7 +1897,7 @@ function PGAMain() {
 						}
 					} else if (!replayD) {
 						const url = route.rtsReplay(1, ReplayTime * 1000);
-						// + "&key=" + setting["api.key"]
+						// + "&key=" + setting["exptech.key"]
 						const controller = new AbortController();
 						setTimeout(() => {
 							controller.abort();
@@ -2032,7 +2131,7 @@ function PGAMainbkup() {
 						}
 					} else if (!replayD) {
 						const url = route.rtsReplay(1, ReplayTime * 1000);
-						// + "&key=" + setting["api.key"]
+						// + "&key=" + setting["exptech.key"]
 						axios({
 							method : "get",
 							url    : url,
@@ -2281,6 +2380,11 @@ function handler(Json) {
 								: (amount > 3.5) ? "pga3"
 									: (amount > 3) ? "pga2"
 										: "pga1";
+
+			if (setting["Real-time.websocket"] === "yayacat" && Alert) {
+				intensity = Math.round(current_data.i);
+				level_class = IntensityToClassString(intensity);
+			}
 
 			if (intensity > MaxIntensity1) MaxIntensity1 = intensity;
 
@@ -3205,6 +3309,14 @@ function ReportGET(badcatch = false) {
 			_report_data = _report_data_temp;
 		}
 
+		// for (let i_ = 0; i_ < _report_data.length; i_++)
+		// 	if (_report_data[i_])
+		// 		if (_report_data[i_].id)
+		// 			if (_report_data[i_].id.startsWith("CWB"))
+		// 				_report_data.splice(i_, 1);
+
+		// storage.setItem("report_data", _report_data);
+
 		// if (_report_data.length != 0)
 		// 	for (let i = 0; i < 50; i++) {
 		// 		const md5 = crypto.createHash("md5");
@@ -3214,19 +3326,19 @@ function ReportGET(badcatch = false) {
 		// let bodyInfo;
 
 		// if (setting["report.getInfo"])
-		// 	bodyInfo = JSON.stringify({ list, key: setting["api.key"] != "" ? setting["api.key"] : "" });
-		// else if (setting["api.key"] != "")
-		// 	bodyInfo = JSON.stringify({ list, key: setting["api.key"] });
+		// 	bodyInfo = JSON.stringify({ list, key: setting["exptech.key"] != "" ? setting["exptech.key"] : "" });
+		// else if (setting["exptech.key"] != "")
+		// 	bodyInfo = JSON.stringify({ list, key: setting["exptech.key"] });
 		// else
 		// bodyInfo = JSON.stringify({ list });
 
 		if (api_key_verify && setting["report.getInfo"] && !badcatch) {
-			route.setkey(setting["api.key"]);
+			route.setkey(setting["exptech.key"]);
 			const controller1 = new AbortController();
 			setTimeout(() => {
 				controller1.abort();
 			}, 5_000);
-			fetch(route.earthquakeReportList(50), { signal: controller1.signal })
+			fetch(route.earthquakeReportList(setting["cache.report"]), { signal: controller1.signal })
 				.then((ans0) => {
 					if (ans0.ok) {
 						console.debug(ans0);
@@ -3235,7 +3347,13 @@ function ReportGET(badcatch = false) {
 
 							if (ans.length != 0) {
 								for (let i = 0; i < ans.length; i++) {
-									const id = ans[i].id;
+									let id = ans[i].id;
+
+									if (id.startsWith("CWB")) {
+										id = id.match(/CWB-EQ(.*)/)[1];
+										ans[i].id = id;
+									}
+
 									ans[i].no = id.split("-")[0];
 
 									for (let _i = 0; _i < _report_data.length; _i++)
@@ -3261,7 +3379,8 @@ function ReportGET(badcatch = false) {
 
 												}
 
-												if (!_report_data[_i].no) _report_data[_i].no = _report_data[_i].id.split("-")[0];
+												if (_report_data && _report_data[_i] && !_report_data[_i].no && _report_data[_i].id !== undefined)
+													_report_data[_i].no = _report_data[_i].id.split("-")[0];
 
 											} else if (_report_data[_i].identifier) {
 												if (_report_data[_i].identifier === id)
@@ -3418,7 +3537,7 @@ function ReportGET(badcatch = false) {
 			setTimeout(() => {
 				controller.abort();
 			}, 5_000);
-			fetch(route.earthquakeReportList(50), { signal: controller.signal })
+			fetch(route.earthquakeReportList(setting["cache.report"]), { signal: controller.signal })
 				.then((ans0) => {
 					if (ans0.ok) {
 						console.debug(ans0);
@@ -3427,7 +3546,13 @@ function ReportGET(badcatch = false) {
 
 							if (ans.length != 0) {
 								for (let i = 0; i < ans.length; i++) {
-									const id = ans[i].id;
+									let id = ans[i].id;
+
+									if (id.startsWith("CWB")) {
+										id = id.match(/CWB-EQ(.*)/)[1];
+										ans[i].id = id;
+									}
+
 									ans[i].no = id.split("-")[0];
 
 									for (let _i = 0; _i < _report_data.length; _i++)
@@ -3453,7 +3578,8 @@ function ReportGET(badcatch = false) {
 
 												}
 
-												if (!_report_data[_i].no) _report_data[_i].no = _report_data[_i].id.split("-")[0];
+												if (_report_data && _report_data[_i] && !_report_data[_i].no && _report_data[_i].id !== undefined)
+													_report_data[_i].no = _report_data[_i].id.split("-")[0];
 
 											} else if (_report_data[_i].identifier) {
 												if (_report_data[_i].identifier === id)
@@ -3723,7 +3849,7 @@ function Report_GET() {
 					}
 				}
 
-			// if (setting["api.key"] != "") ReportGET();
+			// if (setting["exptech.key"] != "") ReportGET();
 			// else cacheReport(_report_data_GET_temp);
 			cacheReport(_report_data_GET_temp);
 		}
@@ -3820,7 +3946,7 @@ function addReport(report, prepend = false, index = 0, palert = false) {
 	if (replay != 0 && OriginTime > new Date(replay + (NOW().getTime() - replayT)).getTime()) return;
 
 	const Level = report.int ? IntensityI(report.int) : IntensityI(report.data[0]?.areaIntensity);
-	// if (setting["api.key"] == "" && Level == "?") return;
+	// if (setting["exptech.key"] == "" && Level == "?") return;
 	let msg = "";
 	let star = "";
 
@@ -4079,19 +4205,24 @@ function addReport(report, prepend = false, index = 0, palert = false) {
 			let _report_data = [];
 			_report_data = storage.getItem("report_data");
 
-			if (typeof _report_data != "object") _report_data = [];
-
-			if (_report_data == null) _report_data = [];
+			for (let _i = 0; _i < _report_data.length; _i++)
+				if (_report_data[_i].id)
+					if (_report_data[_i].id === report.id)
+						_report_data.splice(_i, 1);
 
 			_report_data.push(report);
 
 			for (let i = 0; i < _report_data.length - 1; i++)
-				for (let _i = 0; _i < _report_data.length - 1; _i++)
-					if (new Date(_report_data[_i].originTime.replaceAll("/", "-")).getTime() < new Date(_report_data[_i + 1].originTime.replaceAll("/", "-")).getTime()) {
+				for (let _i = 0; _i < _report_data.length - 1; _i++) {
+					const time_temp = _report_data[_i].originTime ? new Date(_report_data[_i].originTime).getTime() : _report_data[_i].time;
+					const time_1_temp = _report_data[_i + 1].originTime ? new Date(_report_data[_i + 1].originTime).getTime() : _report_data[_i + 1].time;
+
+					if (time_temp < time_1_temp) {
 						const temp = _report_data[_i + 1];
 						_report_data[_i + 1] = _report_data[_i];
 						_report_data[_i] = temp;
 					}
+				}
 
 			storage.setItem("report_data", _report_data);
 		} else {
@@ -4554,8 +4685,8 @@ ipcRenderer.on("sleep", (event, mode) => {
 		sleep(mode);
 });
 
-ipcRenderer.on("apikey", () => {
-	apikey();
+ipcRenderer.on("apikey", (event, data) => {
+	apikey(false, data);
 });
 
 ipcRenderer.on("report-Notification", (event, report) => {
@@ -5116,7 +5247,7 @@ function FCMdata(json, Unit) {
 	if (server_timestamp.includes(json.timestamp) || NOW().getTime() - json.timestamp > 180_000) return;
 	server_timestamp.push(json.timestamp);
 
-	if (server_timestamp.length > 15) server_timestamp.splice(0, 1);
+	if (server_timestamp.length > 30) server_timestamp.splice(0, 1);
 	// eslint-disable-next-line no-empty-function
 	fs.writeFile(path.join(app.getPath("userData"), "server.json"), JSON.stringify(server_timestamp), () => {});
 	// GetData = true;
@@ -5686,7 +5817,7 @@ TREM.Earthquake.on("eew", (data) => {
 
 		eewt.id = data.id;
 
-		if (data.type != "trem-eew" || data.author != "trem")
+		if (data.author != "trem")
 			if (setting["audio.eew"] && Alert) {
 				log("Playing Audio > eew", 1, "Audio", "eew");
 				dump({ level: 0, message: "Playing Audio > eew", origin: "Audio" });
@@ -5715,7 +5846,7 @@ TREM.Earthquake.on("eew", (data) => {
 			}
 	}
 
-	if (data.type != "trem-eew" || data.author != "trem")
+	if (data.author != "trem")
 		if (MaxIntensity.value >= 5) {
 			data.Alert = true;
 
@@ -5772,7 +5903,7 @@ TREM.Earthquake.on("eew", (data) => {
 		eew[data.id].arrive = "";
 	}
 
-	if (data.type != "trem-eew" || data.author != "trem")
+	if (data.author != "trem")
 		if (eew[data.id].Second == -1 || eew[data.id].value < eew[data.id].Second)
 			if (setting["audio.eew"] && Alert)
 				if (eew[data.id].arrive == "") {
@@ -6032,7 +6163,7 @@ TREM.Earthquake.on("eew", (data) => {
 					log(error, 3, "Webhook", "eew");
 					dump({ level: 2, message: error, origin: "Webhook" });
 				});
-			} else if (setting["trem-eew.No-Notification"] && (data.type != "trem-eew" || data.author != "trem")) {
+			} else if (setting["trem-eew.No-Notification"] && (data.author != "trem")) {
 				const Now1 = NOW().getFullYear()
 					+ "/" + (NOW().getMonth() + 1)
 					+ "/" + NOW().getDate()
@@ -6299,7 +6430,7 @@ function main(data) {
 		showDialogtime.close();
 	}
 
-	if (TREM.EEW.get(INFO[TINFO]?.ID).Cancel == undefined && ((setting["trem.ps"] && (data.type == "trem-eew" || data.author == "trem")) || (data.type != "trem-eew" || data.author != "trem"))) {
+	if (TREM.EEW.get(INFO[TINFO]?.ID).Cancel == undefined && ((setting["trem.ps"] && (data.type == "trem-eew" || data.author == "trem")) || (data.author != "trem"))) {
 		if (data.depth != null) {
 
 			/**

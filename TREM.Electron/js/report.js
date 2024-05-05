@@ -57,6 +57,38 @@ TREM.Report = {
 		if (this.view == "report-list" || skipCheck) {
 			const fragment = new DocumentFragment();
 			const reports = Array.from(this.cache, ([k, v]) => v);
+
+			// for (const report of reports)
+			// 	if (!report.originTime) {
+			// 		const now_format = (time) => new Date(time.toLocaleString("en-US", { hourCycle: "h23", timeZone: "Asia/Taipei" })).format("YYYY/MM/DD HH:mm:ss");
+			// 		report.originTime = now_format(new Date(report.time));
+			// 		this.cache.set(report.id, report);
+
+			// 		let _report_data = [];
+			// 		_report_data = storage.getItem("report_data");
+
+			// 		for (let _i = 0; _i < _report_data.length; _i++)
+			// 			if (_report_data[_i].id)
+			// 				if (_report_data[_i].id === report.id)
+			// 					_report_data.splice(_i, 1);
+
+			// 		_report_data.push(report);
+
+			// 		for (let i = 0; i < _report_data.length - 1; i++)
+			// 			for (let _i = 0; _i < _report_data.length - 1; _i++) {
+			// 				const time_temp = _report_data[_i].originTime ? new Date(_report_data[_i].originTime).getTime() : _report_data[_i].time;
+			// 				const time_1_temp = _report_data[_i + 1].originTime ? new Date(_report_data[_i + 1].originTime).getTime() : _report_data[_i + 1].time;
+
+			// 				if (time_temp < time_1_temp) {
+			// 					const temp = _report_data[_i + 1];
+			// 					_report_data[_i + 1] = _report_data[_i];
+			// 					_report_data[_i] = temp;
+			// 				}
+			// 			}
+
+			// 		storage.setItem("report_data", _report_data);
+			// 	}
+
 			this.reportList = reports
 				.filter(v => this._filterHasNumber ? (v.earthquakeNo ? v.earthquakeNo % 1000 != 0 : v.no % 1000 != 0) : true)
 				.filter(v => this._filterHasReplay ? v.ID?.length : true)
@@ -65,10 +97,10 @@ TREM.Report = {
 				.filter(v => this._filterTREM ? (v.location ? v.location.startsWith("地震資訊") : v.loc.startsWith("地震資訊")) : true)
 				.filter(v => this._filterCWA ? (v.identifier ? (v.identifier.startsWith("CWA") || v.identifier.startsWith("CWB")) : v.id.match(/-/g).length === 3) : true)
 				.filter(v => this._filterDate ? v.originTime.split(" ")[0] == this._filterDateValue : true)
-				.filter(v => this._filterMonth ? (v.originTime.split(" ")[0].split("/")[0] + "/" + v.originTime.split(" ")[0].split("/")[1]) == this._filterMonthValue : true);
+				.filter(v => this._filterMonth ? (v.originTime ? ((v.originTime.split(" ")[0].split("/")[0] + "/" + v.originTime.split(" ")[0].split("/")[1]) == this._filterMonthValue) : false) : false);
 
 			for (const report of reports) {
-				// if (setting["api.key"] == "" && report.data[0].areaIntensity == 0) continue;
+				// if (setting["exptech.key"] == "" && report.data[0].areaIntensity == 0) continue;
 				const element = this._createReportItem(report);
 
 				if (report.mag) report.magnitudeValue = report.mag;
@@ -299,12 +331,12 @@ TREM.Report = {
 		// 	ipcRenderer.send("testEEW", list);
 		// }
 
-		// if (report.trem.length) {
+		// if (report.trem) {
 		// 	list = list.concat(report.trem);
 		// 	ipcRenderer.send("testEEW", list);
 		// }
 
-		if (!report.download || !report.ID.length || !report.trem.length) {
+		if (!report.download || !report.ID.length || !report.trem) {
 			this.replayHttp = true;
 			const oldtime = new Date(report.originTime.replace(/-/g, "/")).getTime();
 			ipcRenderer.send("testoldtimeEEW", oldtime);
@@ -337,8 +369,10 @@ TREM.Report = {
 				if (time > _end_time) {
 					clearInterval(this.clock);
 					console.debug("Finish!");
-					document.getElementById("report-replay-downloader-icon").innerText = "download_done";
-					document.getElementById("report-replay-downloader-text").innerText = "下載完成!";
+
+					if (document.getElementById("report-replay-downloader-icon")) document.getElementById("report-replay-downloader-icon").innerText = "download_done";
+
+					if (document.getElementById("report-replay-downloader-text")) document.getElementById("report-replay-downloader-text").innerText = "下載完成!";
 					downloader_progress.style.display = "none";
 					report.download = true;
 					this.cache.set(report.identifier, report);
@@ -456,8 +490,9 @@ TREM.Report = {
 		const time_hold = String(time / 1000);
 
 		fs.rm(path.join(path.join(app.getPath("userData"), "replay_data"), time_hold), { recursive: true }, () => {
-			document.getElementById("report-replay-downloader-icon").innerText = "download";
-			document.getElementById("report-replay-downloader-text").innerText = "下載";
+			if (document.getElementById("report-replay-downloader-icon")) document.getElementById("report-replay-downloader-icon").innerText = "download";
+
+			if (document.getElementById("report-replay-downloader-text")) document.getElementById("report-replay-downloader-text").innerText = "下載";
 			document.getElementById("downloader_progress").style.display = "none";
 			report.download = false;
 			this.cache.set(report.identifier, report);
@@ -739,8 +774,8 @@ TREM.Report = {
 			document.getElementById("report-replay").value = report.identifier;
 			document.getElementById("report-replay-downloader").value = report.identifier;
 
-			if (report.trem[0]) {
-				document.getElementById("report-TREM").value = `https://exptech.com.tw/api/v1/file/trem-info.html?id=${report.trem[0]}`;
+			if (report.trem) {
+				document.getElementById("report-TREM").value = `https://api.exptech.com.tw/file/trem_info.html?id=${report.trem}`;
 				document.getElementById("report-TREM").style.display = "";
 			} else {
 				document.getElementById("report-TREM").style.display = "none";
@@ -752,21 +787,24 @@ TREM.Report = {
 
 			fs.access(`${path.join(path.join(app.getPath("userData"), "replay_data"), time_hold)}/${time_hold}.trem`, (err) => {
 				if (!err) {
-					document.getElementById("report-replay-downloader-icon").innerText = "download_done";
-					document.getElementById("report-replay-downloader-text").innerText = "已下載!";
+					if (document.getElementById("report-replay-downloader-icon")) document.getElementById("report-replay-downloader-icon").innerText = "download_done";
+
+					if (document.getElementById("report-replay-downloader-text")) document.getElementById("report-replay-downloader-text").innerText = "已下載!";
 					report.download = true;
 					this.cache.set(report.identifier, report);
 					fs.access(`${path.join(path.join(app.getPath("userData"), "replay_data"), time_hold)}/${_end_timed}.trem`, (err) => {
 						if (err) {
-							document.getElementById("report-replay-downloader-icon").innerText = "download";
-							document.getElementById("report-replay-downloader-text").innerText = "下載中...";
+							if (document.getElementById("report-replay-downloader-icon")) document.getElementById("report-replay-downloader-icon").innerText = "download";
+
+							if (document.getElementById("report-replay-downloader-text")) document.getElementById("report-replay-downloader-text").innerText = "下載中...";
 							report.download = false;
 							this.cache.set(report.identifier, report);
 						}
 					});
 				} else {
-					document.getElementById("report-replay-downloader-icon").innerText = "download";
-					document.getElementById("report-replay-downloader-text").innerText = "下載";
+					if (document.getElementById("report-replay-downloader-icon")) document.getElementById("report-replay-downloader-icon").innerText = "download";
+
+					if (document.getElementById("report-replay-downloader-text")) document.getElementById("report-replay-downloader-text").innerText = "下載";
 					report.download = false;
 					this.cache.set(report.identifier, report);
 				}
@@ -901,6 +939,8 @@ TREM.Report = {
 									report.Max_Level_stationName = Max_Level_stationName;
 								}
 
+								ipcRenderer.send("report-Notification", report);
+
 								let _report_data = [];
 								_report_data = storage.getItem("report_data");
 
@@ -925,8 +965,6 @@ TREM.Report = {
 
 								storage.setItem("report_data", _report_data);
 								ipcRenderer.send("ReportGET");
-
-								ipcRenderer.send("report-Notification", report);
 
 								document.getElementById("report-overview-number").innerText = TREM.Localization.getString(report.loc.startsWith("地震資訊") ? "Report_Title_Local" : (report.no % 1000 ? report.no : "Report_Title_Small"));
 								document.getElementById("report-overview-location").innerText = report.loc;
@@ -963,8 +1001,8 @@ TREM.Report = {
 								// document.getElementById("report-replay").value = report.id;
 								// document.getElementById("report-replay-downloader").value = report.id;
 
-								// if (report.trem[0]) {
-								// 	document.getElementById("report-TREM").value = `https://exptech.com.tw/api/v1/file/trem-info.html?id=${report.trem[0]}`;
+								// if (report.trem) {
+								// 	document.getElementById("report-TREM").value = `https://exptech.com.tw/api/v1/file/trem-info.html?id=${report.trem}`;
 								// 	document.getElementById("report-TREM").style.display = "";
 								// } else {
 								// 	document.getElementById("report-TREM").style.display = "none";
@@ -976,21 +1014,24 @@ TREM.Report = {
 
 								fs.access(`${path.join(path.join(app.getPath("userData"), "replay_data"), time_hold)}/${time_hold}.trem`, (err) => {
 									if (!err) {
-										document.getElementById("report-replay-downloader-icon").innerText = "download_done";
-										document.getElementById("report-replay-downloader-text").innerText = "已下載!";
+										if (document.getElementById("report-replay-downloader-icon")) document.getElementById("report-replay-downloader-icon").innerText = "download_done";
+
+										if (document.getElementById("report-replay-downloader-text")) document.getElementById("report-replay-downloader-text").innerText = "已下載!";
 										report.download = true;
 										this.cache.set(report.id, report);
 										fs.access(`${path.join(path.join(app.getPath("userData"), "replay_data"), time_hold)}/${_end_timed}.trem`, (err) => {
 											if (err) {
-												document.getElementById("report-replay-downloader-icon").innerText = "download";
-												document.getElementById("report-replay-downloader-text").innerText = "下載中...";
+												if (document.getElementById("report-replay-downloader-icon")) document.getElementById("report-replay-downloader-icon").innerText = "download";
+
+												if (document.getElementById("report-replay-downloader-text")) document.getElementById("report-replay-downloader-text").innerText = "下載中...";
 												report.download = false;
 												this.cache.set(report.id, report);
 											}
 										});
 									} else {
-										document.getElementById("report-replay-downloader-icon").innerText = "download";
-										document.getElementById("report-replay-downloader-text").innerText = "下載";
+										if (document.getElementById("report-replay-downloader-icon")) document.getElementById("report-replay-downloader-icon").innerText = "download";
+
+										if (document.getElementById("report-replay-downloader-text")) document.getElementById("report-replay-downloader-text").innerText = "下載";
 										report.download = false;
 										this.cache.set(report.id, report);
 									}
@@ -1102,9 +1143,7 @@ TREM.Report = {
 						dump({ level: 2, message: err });
 						return "err";
 					});
-			} else {
-				ipcRenderer.send("report-Notification", report);
-
+			} else if (report.list) {
 				if (!report.Max_Level) {
 					let Max_Level = 0;
 					let Max_Level_areaName = "";
@@ -1149,6 +1188,8 @@ TREM.Report = {
 					report.Max_Level_stationName = Max_Level_stationName;
 				}
 
+				ipcRenderer.send("report-Notification", report);
+
 				document.getElementById("report-overview-number").innerText = TREM.Localization.getString(report.loc.startsWith("地震資訊") ? "Report_Title_Local" : (report.no % 1000 ? report.no : "Report_Title_Small"));
 				document.getElementById("report-overview-location").innerText = report.loc;
 				const time = new Date(new Date(report.time).toLocaleString("en-US", { hourCycle: "h23", timeZone: "Asia/Taipei" }));
@@ -1184,8 +1225,8 @@ TREM.Report = {
 				// document.getElementById("report-replay").value = report.id;
 				// document.getElementById("report-replay-downloader").value = report.id;
 
-				// if (report.trem[0]) {
-				// 	document.getElementById("report-TREM").value = `https://exptech.com.tw/api/v1/file/trem-info.html?id=${report.trem[0]}`;
+				// if (report.trem) {
+				// 	document.getElementById("report-TREM").value = `https://exptech.com.tw/api/v1/file/trem-info.html?id=${report.trem}`;
 				// 	document.getElementById("report-TREM").style.display = "";
 				// } else {
 				// 	document.getElementById("report-TREM").style.display = "none";
@@ -1197,21 +1238,24 @@ TREM.Report = {
 
 				fs.access(`${path.join(path.join(app.getPath("userData"), "replay_data"), time_hold)}/${time_hold}.trem`, (err) => {
 					if (!err) {
-						document.getElementById("report-replay-downloader-icon").innerText = "download_done";
-						document.getElementById("report-replay-downloader-text").innerText = "已下載!";
+						if (document.getElementById("report-replay-downloader-icon")) document.getElementById("report-replay-downloader-icon").innerText = "download_done";
+
+						if (document.getElementById("report-replay-downloader-text")) document.getElementById("report-replay-downloader-text").innerText = "已下載!";
 						report.download = true;
 						this.cache.set(report.id, report);
 						fs.access(`${path.join(path.join(app.getPath("userData"), "replay_data"), time_hold)}/${_end_timed}.trem`, (err) => {
 							if (err) {
-								document.getElementById("report-replay-downloader-icon").innerText = "download";
-								document.getElementById("report-replay-downloader-text").innerText = "下載中...";
+								if (document.getElementById("report-replay-downloader-icon")) document.getElementById("report-replay-downloader-icon").innerText = "download";
+
+								if (document.getElementById("report-replay-downloader-text")) document.getElementById("report-replay-downloader-text").innerText = "下載中...";
 								report.download = false;
 								this.cache.set(report.id, report);
 							}
 						});
 					} else {
-						document.getElementById("report-replay-downloader-icon").innerText = "download";
-						document.getElementById("report-replay-downloader-text").innerText = "下載";
+						if (document.getElementById("report-replay-downloader-icon")) document.getElementById("report-replay-downloader-icon").innerText = "download";
+
+						if (document.getElementById("report-replay-downloader-text")) document.getElementById("report-replay-downloader-text").innerText = "下載";
 						report.download = false;
 						this.cache.set(report.id, report);
 					}
@@ -1377,17 +1421,17 @@ TREM.Report = {
 	},
 	_setuptremget(report) {
 		if (this.report_trem)
-			if (report.trem.length != 0 && Array.isArray(report.trem)) {
-				if (!this.report_trem_data[report.trem[0]]?.trem)
-					fetch(`https://exptech.com.tw/api/v1/earthquake/trem-info/${report.trem[0]}`)
+			if (report.trem && Array.isArray(report.trem)) {
+				if (!this.report_trem_data[report.trem]?.trem)
+					fetch(`https://exptech.com.tw/api/v1/earthquake/trem-info/${report.trem}`)
 						.then((res) => {
 							if (res.ok) {
 								console.debug(res);
 
 								res.json().then(res1 => {
 									console.debug(res1);
-									this._report_trem_data[report.trem[0]] = res1;
-									this.report_trem_data[report.trem[0]] = this._report_trem_data[report.trem[0]];
+									this._report_trem_data[report.trem] = res1;
+									this.report_trem_data[report.trem] = this._report_trem_data[report.trem];
 									storage.setItem("report_trem_data", this._report_trem_data);
 									this._setuptremmarker(report);
 								});
@@ -1425,16 +1469,16 @@ TREM.Report = {
 							this._setupzoomPredict();
 						});
 
-				if (!this.report_trem_data[report.trem[0]])
-					fetch(`https://exptech.com.tw/api/v1/file?path=/trem_report/${report.trem[0]}.json`)
+				if (!this.report_trem_data[report.trem])
+					fetch(`https://exptech.com.tw/api/v1/file?path=/trem_report/${report.trem}.json`)
 						.then((res) => {
 							if (res.ok) {
 								console.debug(res);
 
 								res.json().then(res1 => {
 									console.debug(res1);
-									this._report_trem_data[report.trem[0]] = res1;
-									this.report_trem_data[report.trem[0]] = this._report_trem_data[report.trem[0]];
+									this._report_trem_data[report.trem] = res1;
+									this.report_trem_data[report.trem] = this._report_trem_data[report.trem];
 									storage.setItem("report_trem_data", this._report_trem_data);
 									this._setuptremmarker(report);
 								});
@@ -1471,16 +1515,16 @@ TREM.Report = {
 							dump({ level: 2, message: err });
 							this._setupzoomPredict();
 						});
-				else if (!this.report_trem_data[report.trem[0]].trem || !this.report_trem_data[report.trem[0]].eew || !this.report_trem_data[report.trem[0]].note?.rf)
-					fetch(`https://exptech.com.tw/api/v1/file?path=/trem_report/${report.trem[0]}.json`)
+				else if (!this.report_trem_data[report.trem].trem || !this.report_trem_data[report.trem].eew || !this.report_trem_data[report.trem].note?.rf)
+					fetch(`https://exptech.com.tw/api/v1/file?path=/trem_report/${report.trem}.json`)
 						.then((res) => {
 							if (res.ok) {
 								console.debug(res);
 
 								res.json().then(res1 => {
 									console.debug(res1);
-									this._report_trem_data[report.trem[0]] = res1;
-									this.report_trem_data[report.trem[0]] = this._report_trem_data[report.trem[0]];
+									this._report_trem_data[report.trem] = res1;
+									this.report_trem_data[report.trem] = this._report_trem_data[report.trem];
 									storage.setItem("report_trem_data", this._report_trem_data);
 									this._setuptremmarker(report);
 								});
@@ -1528,9 +1572,9 @@ TREM.Report = {
 	_setuptremmarker(report) {
 		this.report_trem_station = {};
 
-		if (this.report_trem_data[report.trem[0]]) {
+		if (this.report_trem_data[report.trem]) {
 			let Station_i0 = 0;
-			const res = this.report_trem_data[report.trem[0]];
+			const res = this.report_trem_data[report.trem];
 
 			for (let index0 = 0; index0 < res.station.length; index0++) {
 				const info = res.station[index0];
