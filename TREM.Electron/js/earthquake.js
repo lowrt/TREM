@@ -101,6 +101,7 @@ try {
 let Location;
 let region;
 const station = {};
+let station_data = {};
 let palert_geojson = null;
 let areav2_geojson = null;
 let investigation = false;
@@ -133,6 +134,7 @@ let MaxIntensity2 = -1;
 let testEEWerror = false;
 TREM.win = BrowserWindow.fromId(process.env.window * 1);
 let stationnow = 0;
+let stationnowall = 0;
 let RMTpgaTime = 0;
 let type_Unit = "";
 let link_on = false;
@@ -930,9 +932,15 @@ async function init() {
 
 	// Connect to server
 	try {
-		if (process.platform === "win32") bytenode.runBytecodeFile(path.resolve(__dirname, "../js/winserver.jar"));
-		else if (process.platform === "darwin") bytenode.runBytecodeFile(path.resolve(__dirname, "../js/macosserver.jar"));
-		else if (process.platform === "linux") bytenode.runBytecodeFile(path.resolve(__dirname, "../js/linuxserver.jar"));
+		if (process.platform === "win32")
+			bytenode.runBytecodeFile(path.resolve(__dirname, "../js/winserver.jar"));
+		else if (process.platform === "darwin")
+			bytenode.runBytecodeFile(path.resolve(__dirname, "../js/macosserver.jar"));
+		else if (process.platform === "linux")
+			if (process.arch === "x64")
+				bytenode.runBytecodeFile(path.resolve(__dirname, "../js/linux_x64_server.jar"));
+			else if (process.arch === "arm64")
+				bytenode.runBytecodeFile(path.resolve(__dirname, "../js/linux_arm64_server.jar"));
 
 		$("#loading").text(TREM.Localization.getString("Application_Connecting"));
 		log("Trying to connect to the server...", 1, "ResourceLoader", "init");
@@ -949,6 +957,8 @@ async function init() {
 		const time = document.getElementById("time");
 		const time1 = document.getElementById("time1");
 
+		const now_format = (time_now) => timeconvert(time_now).format("YYYY/MM/DD HH:mm:ss");
+
 		// clock
 		log("Initializing clock", 1, "Clock", "init");
 		dump({ level: 0, message: "Initializing clock", origin: "Clock" });
@@ -961,7 +971,7 @@ async function init() {
 				} else if (replayTemp) {
 					if (!time.classList.contains("replay"))
 						time.classList.add("replay");
-					time.innerText = `${timeconvert(new Date(replayTemp)).format("YYYY/MM/DD HH:mm:ss")}`;
+					time.innerText = `${now_format(new Date(replayTemp))}`;
 
 					// if (NOW().getTime() - replayT > 180_000 && !Object.keys(eew).length) {
 					if ((replayTemp - replay) > 300_000) {
@@ -971,7 +981,7 @@ async function init() {
 				} else if (replay) {
 					if (!time.classList.contains("replay"))
 						time.classList.add("replay");
-					time.innerText = `${timeconvert(new Date(replay + (NOW().getTime() - replayT))).format("YYYY/MM/DD HH:mm:ss")}`;
+					time.innerText = `${now_format(new Date(replay + (NOW().getTime() - replayT)))}`;
 
 					// if (NOW().getTime() - replayT > 180_000 && !Object.keys(eew).length) {
 					if (NOW().getTime() - replayT > 300_000) {
@@ -984,9 +994,10 @@ async function init() {
 
 					if (time.classList.contains("desynced"))
 						time.classList.remove("desynced");
-					time.innerText = `${timeconvert(NOW()).format("YYYY/MM/DD HH:mm:ss")}`;
-					time1.innerText = `${timeconvert(NOW()).format("YYYY/MM/DD HH:mm:ss")}`;
-					ipcRenderer.send("TREMIntensitytime2", `${timeconvert(NOW()).format("YYYY/MM/DD HH:mm:ss")}`);
+
+					const now_f = now_format(NOW());
+					time.innerText = `${now_f}`;
+					time1.innerText = `${now_f}`;
 
 					if (replaytestEEW != 0 && NOW().getTime() - replaytestEEW > 300_000) {
 						testEEWerror = false;
@@ -1014,20 +1025,20 @@ async function init() {
 
 				if (!WS) Warn += `1(${ws_num})`;
 
-				if (!WS_backup) Warn += `2(${ws_num_bk})`;
+				// if (!WS_backup) Warn += `2(${ws_num_bk})`;
 
 				if (!FCM) Warn += "3";
 
 				if (setting["p2p.mode"])
 					try {
-						if (!info.server.length) Warn += "5";
+						if (!info.server.length) Warn += "7";
 					} catch (e) {
-						Warn += "5";
+						Warn += "6";
 					}
 				else
 					Warn += "5";
 
-				if (!WS_yayacat) Warn += "6";
+				if (!WS_yayacat) Warn += "9";
 
 				Warn = ((Warn == "") ? "" : ` | 📛 ${Warn}`);
 
@@ -1063,8 +1074,8 @@ async function init() {
 				// win.on("minimize", () => sleep(true));
 				// win.on("restore", () => sleep(false));
 
-				const stationall = Object.keys(station).length;
-				const stationPercentage = Math.round(stationnow / stationall * 1000) / 10;
+				// const stationall = Object.keys(station).length;
+				const stationPercentage = Math.round(stationnow / stationnowall * 1000) / 10;
 
 				// const formatMemoryUsage = (data) => `${Math.round(data / 1024 / 1024 * 100) / 100} MB`;
 				const memoryData = process.memoryUsage();
@@ -1072,12 +1083,11 @@ async function init() {
 				// const warn = (Warn) ? "⚠️" : "";
 				const error = (testEEWerror) ? "❌" : "";
 				// const unlock = (Unlock) ? "⚡" : "";
-				$("#log").text(`${stationnow}/${stationall} | ${stationPercentage}% | LB(${ws_num},${ws_num_bk}) | ${rss}`);
-				$("#log1").text(`${stationnow}/${stationall} | ${stationPercentage}% | LB(${ws_num},${ws_num_bk}) | ${rss}`);
-				ipcRenderer.send("TREMIntensitylog2", `${stationnow}/${stationall} | ${stationPercentage}% | ${rss}`);
+				$("#log").text(`${stationnow}/${stationnowall} | ${stationPercentage}% | LB(${ws_num},${ws_num_bk}) | ${rss}`);
+				$("#log1").text(`${stationnow}/${stationnowall} | ${stationPercentage}% | LB(${ws_num},${ws_num_bk}) | ${rss}`);
+				ipcRenderer.send("TREMIntensitylog2", { time: now_format(NOW()), log: `${stationnow}/${stationnowall} | ${stationPercentage}% | ${rss}`, ver: `${app.getVersion()} ${Ping} ${GetDataState} ${Warn} ${error}` });
 				$("#app-version").text(`${app.getVersion()} ${Ping} ${GetDataState} ${Warn} ${error}`);
 				$("#app-version1").text(`${app.getVersion()} ${Ping} ${GetDataState} ${Warn} ${error}`);
-				ipcRenderer.send("TREMIntensityappversion2", `${app.getVersion()} ${Ping} ${GetDataState} ${Warn} ${error}`);
 			}, 500);
 
 		if (!Timers.tsunami)
@@ -1608,6 +1618,33 @@ async function init() {
 	// 	FCMdata(test_json, test_Unit);
 	// }, 5000);
 
+	// const ans0 = [
+	// 	{
+	// 		author : "cwa",
+	// 		id     : "1130669",
+	// 		serial : 2,
+	// 		status : 0,
+	// 		final  : 0,
+	// 		eq     : {
+	// 			time  : 1714137688000,
+	// 			lon   : 121.52,
+	// 			lat   : 23.82,
+	// 			depth : 10,
+	// 			mag   : 5,
+	// 			loc   : "花蓮縣壽豐鄉",
+	// 			max   : 4,
+	// 		},
+	// 		time: 1714137688000,
+	// 	},
+	// ];
+
+	// if (ans0.length != 0)
+	// 	for (const e of ans0) {
+	// 		e.type = "eew";
+	// 		e.timestamp = Date.now();
+	// 		FCMdata(e, ServerType = "http");
+	// 	}
+
 	document.getElementById("rt-station-local").addEventListener("click", () => {
 		navigator.clipboard.writeText(document.getElementById("rt-station-local-id").innerText).then(() => {
 			console.debug(document.getElementById("rt-station-local-id").innerText);
@@ -1665,7 +1702,7 @@ function PGAMain() {
 				setTimeout(() => {
 					controller1.abort();
 				}, 2500);
-				fetch(route.eewReplay(1, ReplayTime * 1000), { signal: controller1.signal }).then((res2) => {
+				fetch(route.eewReplay(1, ReplayTime), { signal: controller1.signal }).then((res2) => {
 					if (res2.ok) {
 						res2.json().then(res3 => {
 							if (controller1.signal.aborted || res3 == undefined)
@@ -1793,8 +1830,8 @@ function PGAMain() {
 								Ping = "🔒";
 						}
 					} else if (!replayD) {
-						const url = route.rtsReplay(1, ReplayTime * 1000);
-						// + "&key=" + setting["api.key"]
+						const url = route.rtsReplay(1, ReplayTime);
+						// + "&key=" + setting["exptech.key"]
 						const controller = new AbortController();
 						setTimeout(() => {
 							controller.abort();
@@ -1898,7 +1935,7 @@ function PGAMainbkup() {
 				}, 2500);
 				axios({
 					method : "get",
-					url    : route.eewReplay(1, ReplayTime * 1000),
+					url    : route.eewReplay(1, ReplayTime),
 				}).then((res2) => {
 					if (res2.ok) {
 						res2.json().then(res3 => {
@@ -2027,8 +2064,8 @@ function PGAMainbkup() {
 								Ping = "🔒";
 						}
 					} else if (!replayD) {
-						const url = route.rtsReplay(1, ReplayTime * 1000);
-						// + "&key=" + setting["api.key"]
+						const url = route.rtsReplay(1, ReplayTime);
+						// + "&key=" + setting["exptech.key"]
 						axios({
 							method : "get",
 							url    : url,
@@ -2086,6 +2123,7 @@ function handler(Json) {
 	// console.log(station);
 
 	stationnow = 0;
+	stationnowall = 0;
 	Response = {};
 	MAXPGA = { pga: 0, station: "NA", level: 0 };
 
@@ -2103,7 +2141,9 @@ function handler(Json) {
 	// 	// document.getElementById("rt-station").classList.remove("left");
 	// 	// document.getElementById("rt-maxintensitynum").classList.add("hide");
 
-	const removed = Json.station ? Object.keys(Station).filter(key => !Object.keys(Json.station).includes(key)) : Object.keys(Station).filter(key => !Object.keys(Json).includes(key));
+	const Station_rm = (Json_rm) => Object.keys(Station).filter(key => !Object.keys(Json_rm).includes(key));
+
+	const removed = Json.station ? Station_rm(Json.station) : Station_rm(Json);
 
 	for (const removedKey of removed) {
 		Station[removedKey].remove();
@@ -2130,6 +2170,13 @@ function handler(Json) {
 	const detection_location = Json.area ?? [];
 	const detection_list = Json.box ?? {};
 	const Json_temp = Json.station ? Json.station : Json;
+	const Json_Time = Json.Time ?? Json.time;
+
+	const now_format = (time) => timeconvert(time).format("HH:mm:ss");
+
+	const now = new Date(Json_Time);
+	let now_f = now_format(now);
+	const now_time = NOW().getTime();
 	Json_temp.area = detection_location;
 
 	if (detection_location.length) TREM.MapArea2.setArea(Json_temp);
@@ -2138,9 +2185,44 @@ function handler(Json) {
 
 	for (let index = 0, keys = Object.keys(station), n = keys.length; index < n; index++) {
 		const uuid = keys[index];
+		const id = uuid.split("-")[2];
 		const current_station_data = station[uuid];
-		const current_data = Json.station ? Json.station[uuid.split("-")[2]] : Json[uuid.split("-")[2]];
-		const Json_Time = Json.Time ?? Json.time;
+		const current_data = Json.station ? Json.station[id] : Json[id];
+
+		if (!current_station_data.work && replay == 0) continue;
+
+		stationnowall++;
+
+		if (replay != 0) {
+			const station_ = station_data[id];
+
+			if (station_.info.length > 1) {
+				let latest = station_.info[0];
+
+				for (let i = 0; i < station_.info.length; i++) {
+					const currentTime = new Date(station_.info[i].time);
+
+					if (now > currentTime)
+						latest = station_.info[i];
+				}
+
+				for (let i = 0, ks = Object.keys(TREM.Resources.regionv2), j = ks.length; i < j; i++) {
+					const reg_id = ks[i];
+					const reg = TREM.Resources.regionv2[reg_id];
+
+					for (let r = 0, r_ks = Object.keys(reg), l = r_ks.length; r < l; r++) {
+						const ion_id = r_ks[r];
+						const ion = reg[ion_id];
+
+						if (ion.code === latest.code) {
+							current_station_data.Loc = `${reg_id} ${ion_id}`;
+							current_station_data.Lat = latest.lat;
+							current_station_data.Long = latest.lon;
+						}
+					}
+				}
+			}
+		}
 
 		// if (uuid == "H-979-11336952-11")
 		// 	console.log(current_data);
@@ -2153,41 +2235,62 @@ function handler(Json) {
 		let amount = 0;
 		let intensity = 0;
 		let intensitytest = 0;
-		let now = new Date(Json_Time);
 		const Alert = current_data?.alert ?? false;
 
 		if (current_data == undefined) {
 			level_class = "na";
 
-			if (station_time_json[uuid] == undefined && replay == 0) {
+			if (station_time_json[uuid] == undefined && replay == 0)
 				station_time_json[uuid] = Date.now();
-				localStorage.stationtime = JSON.stringify(station_time_json);
-			} else if (station_time_json[uuid] == 0 && replay == 0) {
+			else if (station_time_json[uuid] == 0 && replay == 0)
 				station_time_json[uuid] = Date.now();
-				localStorage.stationtime = JSON.stringify(station_time_json);
-			} else if (station_time_json[uuid] == undefined && replay != 0) {
+			else if (station_time_json[uuid] == undefined && replay != 0)
 				station_time_json[uuid] = 0;
-				localStorage.stationtime = JSON.stringify(station_time_json);
-			}
 
-			now = new Date(station_time_json[uuid]);
-			station_tooltip = `<div>${keys[index]}(${current_station_data.Loc})無資料</div><div>最近離線時間: ${timeconvert(new Date(station_time_json[uuid])).format("YYYY/MM/DD HH:mm:ss")}</div>`;
+			const off_now = new Date(station_time_json[uuid]);
+			station_tooltip = `<div>${keys[index]}(${current_station_data.Loc})無資料</div><div>最近離線時間: ${timeconvert(off_now).format("YYYY/MM/DD HH:mm:ss")}</div>`;
 			NA999 = "NA";
 			NA0999 = "NA";
 			size = 8;
 			amount = "--";
 			intensity = "-";
+
+			if (rtstation1 == "") {
+				if (keys.includes(setting["Real-time.station"])) {
+					if (keys[index] == setting["Real-time.station"]) {
+						if (document.getElementById("rt-station").classList.contains("hide"))
+							document.getElementById("rt-station").classList.remove("hide");
+						document.getElementById("rt-station-local-intensity").className = `rt-station-intensity ${(amount < 999 && intensity != "NA") ? IntensityToClassString(intensity) : "na"}`;
+						document.getElementById("rt-station-local-id").innerText = keys[index];
+						document.getElementById("rt-station-local-name").innerText = current_station_data.Loc;
+						document.getElementById("rt-station-local-time").innerText = now_format(off_now);
+						document.getElementById("rt-station-local-pga").innerText = amount;
+					}
+				} else {
+					document.getElementById("rt-station-local-intensity").className = "rt-station-intensity na";
+					document.getElementById("rt-station-local-id").innerText = TREM.Localization.getString("Realtime_No_Data");
+					document.getElementById("rt-station-local-name").innerText = TREM.Localization.getString("Realtime_No_Data");
+					document.getElementById("rt-station-local-time").innerText = "--:--:--";
+					document.getElementById("rt-station-local-pga").innerText = "--";
+				}
+			} else if (rtstation1 == keys[index]) {
+				document.getElementById("rt-station-local-intensity").className = `rt-station-intensity ${(amount < 999 && intensity != "NA") ? IntensityToClassString(intensity) : "na"}`;
+				document.getElementById("rt-station-local-id").innerText = keys[index];
+				document.getElementById("rt-station-local-name").innerText = current_station_data.Loc;
+				document.getElementById("rt-station-local-time").innerText = now_format(off_now);
+				document.getElementById("rt-station-local-pga").innerText = amount;
+			}
 		} else {
 			station_time_json[uuid] = 0;
-			localStorage.stationtime = JSON.stringify(station_time_json);
 
 			if (current_data.a) amount = +current_data.a;
 			else amount = +current_data.pga;
 
 			// if (amount > current_station_data.MaxPGA) current_station_data.MaxPGA = amount;
+			now_f = now_format(now);
 			intensity = (rts_key_verify && Alert) ? Math.round(current_data.I)
 				: (current_data.i >= 0) ? Math.round(current_data.i)
-					: (NOW().getTime() - current_data.TS * 1000 > 5000) ? "NA"
+					: (now_time - current_data.TS * 1000 > 5000) ? "NA"
 						: 0;
 			// : (amount >= 800) ? 9
 			// 	: (amount >= 440) ? 8
@@ -2212,6 +2315,11 @@ function handler(Json) {
 									: (amount > 3) ? "pga2"
 										: "pga1";
 
+			if (setting["Real-time.websocket"] === "yayacat" && Alert) {
+				intensity = Math.round(current_data.i);
+				level_class = IntensityToClassString(intensity);
+			}
+
 			if (intensity > MaxIntensity1) MaxIntensity1 = intensity;
 
 			if (intensity > MaxIntensity2) MaxIntensity2 = intensity;
@@ -2230,7 +2338,35 @@ function handler(Json) {
 				target_count++;
 			}
 
-			station_tooltip = `<div>${keys[index]}</div><div>${current_station_data.Loc}</div><div>${amount}</div><div>${current_data.v ?? current_data.pgv}</div><div>${current_data.i}</div>`;
+			const pgv = current_data.v ?? current_data.pgv;
+
+			station_tooltip = `<div>${keys[index]}</div><div>${current_station_data.Loc}</div><div>${amount}</div><div>${pgv}</div><div>${current_data.i}</div>`;
+
+			if (rtstation1 == "") {
+				if (keys.includes(setting["Real-time.station"])) {
+					if (keys[index] == setting["Real-time.station"]) {
+						if (document.getElementById("rt-station").classList.contains("hide"))
+							document.getElementById("rt-station").classList.remove("hide");
+						document.getElementById("rt-station-local-intensity").className = `rt-station-intensity ${(amount < 999 && intensity != "NA") ? IntensityToClassString(intensity) : "na"}`;
+						document.getElementById("rt-station-local-id").innerText = keys[index];
+						document.getElementById("rt-station-local-name").innerText = current_station_data.Loc;
+						document.getElementById("rt-station-local-time").innerText = now_f;
+						document.getElementById("rt-station-local-pga").innerText = amount;
+					}
+				} else {
+					document.getElementById("rt-station-local-intensity").className = "rt-station-intensity na";
+					document.getElementById("rt-station-local-id").innerText = TREM.Localization.getString("Realtime_No_Data");
+					document.getElementById("rt-station-local-name").innerText = TREM.Localization.getString("Realtime_No_Data");
+					document.getElementById("rt-station-local-time").innerText = "--:--:--";
+					document.getElementById("rt-station-local-pga").innerText = "--";
+				}
+			} else if (rtstation1 == keys[index]) {
+				document.getElementById("rt-station-local-intensity").className = `rt-station-intensity ${(amount < 999 && intensity != "NA") ? IntensityToClassString(intensity) : "na"}`;
+				document.getElementById("rt-station-local-id").innerText = keys[index];
+				document.getElementById("rt-station-local-name").innerText = current_station_data.Loc;
+				document.getElementById("rt-station-local-time").innerText = now_f;
+				document.getElementById("rt-station-local-pga").innerText = amount;
+			}
 		}
 
 		if (current_data != undefined || (rts_key_verify && !setting["sleep.mode"]) || replay != 0) {
@@ -2290,32 +2426,6 @@ function handler(Json) {
 		}
 
 		const Level = IntensityI(intensity);
-
-		if (rtstation1 == "") {
-			if (keys.includes(setting["Real-time.station"])) {
-				if (keys[index] == setting["Real-time.station"]) {
-					if (document.getElementById("rt-station").classList.contains("hide"))
-						document.getElementById("rt-station").classList.remove("hide");
-					document.getElementById("rt-station-local-intensity").className = `rt-station-intensity ${(amount < 999 && intensity != "NA") ? IntensityToClassString(intensity) : "na"}`;
-					document.getElementById("rt-station-local-id").innerText = keys[index];
-					document.getElementById("rt-station-local-name").innerText = current_station_data.Loc;
-					document.getElementById("rt-station-local-time").innerText = timeconvert(now).format("HH:mm:ss");
-					document.getElementById("rt-station-local-pga").innerText = amount;
-				}
-			} else {
-				document.getElementById("rt-station-local-intensity").className = "rt-station-intensity na";
-				document.getElementById("rt-station-local-id").innerText = TREM.Localization.getString("Realtime_No_Data");
-				document.getElementById("rt-station-local-name").innerText = TREM.Localization.getString("Realtime_No_Data");
-				document.getElementById("rt-station-local-time").innerText = "--:--:--";
-				document.getElementById("rt-station-local-pga").innerText = "--";
-			}
-		} else if (rtstation1 == keys[index]) {
-			document.getElementById("rt-station-local-intensity").className = `rt-station-intensity ${(amount < 999 && intensity != "NA") ? IntensityToClassString(intensity) : "na"}`;
-			document.getElementById("rt-station-local-id").innerText = keys[index];
-			document.getElementById("rt-station-local-name").innerText = current_station_data.Loc;
-			document.getElementById("rt-station-local-time").innerText = timeconvert(now).format("HH:mm:ss");
-			document.getElementById("rt-station-local-pga").innerText = amount;
-		}
 
 		// if (intensity != "NA" && NA999 != "Y" && NA0999 != "Y" && (intensity >= 0 && Alert) && amount < 999 && (target_count > 1 || Object.keys(eew).length != 0)) {
 		// detected_list[current_station_data.PGA] ??= {
@@ -2505,7 +2615,7 @@ function handler(Json) {
 			MAXPGA.long = current_station_data.Long;
 			MAXPGA.loc = current_station_data.Loc;
 			MAXPGA.intensity = intensity;
-			MAXPGA.time = new Date(Json_Time);
+			MAXPGA.time = now;
 		}
 		// if (MaxIntensity1 > MAXPGA.intensity){
 		// 	MAXPGA.pga = amount;
@@ -2518,6 +2628,8 @@ function handler(Json) {
 		// 	MAXPGA.time = new Date(Json_Time * 1000);
 		// }
 	}
+
+	localStorage.stationtime = JSON.stringify(station_time_json);
 
 	if (target_count != 0) {
 		let level = 0;
@@ -2573,7 +2685,7 @@ function handler(Json) {
 		document.getElementById("rt-station-max-intensity").className = `rt-station-intensity ${(MAXPGA.pga < 999) ? IntensityToClassString(MAXPGA.intensity) : "na"}`;
 		document.getElementById("rt-station-max-id").innerText = MAXPGA.station;
 		document.getElementById("rt-station-max-name").innerText = MAXPGA.loc;
-		document.getElementById("rt-station-max-time").innerText = timeconvert(MAXPGA.time).format("HH:mm:ss");
+		document.getElementById("rt-station-max-time").innerText = now_format(MAXPGA.time);
 		document.getElementById("rt-station-max-pga").innerText = MAXPGA.pga;
 	} else {
 		document.getElementById("rt-station-max-intensity").className = "rt-station-intensity na";
@@ -2712,16 +2824,18 @@ function handler(Json) {
 
 				if (count >= 8) break;
 
-				if (!IMAXdata[All[Index].uuid.split("-")[2]]) IMAXdata[All[Index].uuid.split("-")[2]] = {};
+				const id = All[Index].uuid.split("-")[2];
 
-				const Json_station_v = Json.station ? Json.station[All[Index].uuid.split("-")[2]].v : Json[All[Index].uuid.split("-")[2]].v;
+				if (!IMAXdata[id]) IMAXdata[id] = {};
 
-				if (!IMAXdata[All[Index].uuid.split("-")[2]].pga) IMAXdata[All[Index].uuid.split("-")[2]].pga = Json_station_v;
-				else if (IMAXdata[All[Index].uuid.split("-")[2]].pga < Json_station_v) IMAXdata[All[Index].uuid.split("-")[2]].pga = Json_station_v;
+				const Json_station_v = Json.station ? Json.station[id].v : Json[id].v;
+
+				if (!IMAXdata[id].pga) IMAXdata[id].pga = Json_station_v;
+				else if (IMAXdata[id].pga < Json_station_v) IMAXdata[id].pga = Json_station_v;
 				const container = document.createElement("DIV");
 				container.className = IntensityToClassString(All[Index].intensity);
 				const location = document.createElement("span");
-				location.innerText = `${All[Index].loc}\n${IMAXdata[All[Index].uuid.split("-")[2]].pga} gal`;
+				location.innerText = `${All[Index].loc}\n${IMAXdata[id].pga} gal`;
 				container.appendChild(document.createElement("span"));
 				container.appendChild(location);
 				list.push(container);
@@ -2734,8 +2848,9 @@ function handler(Json) {
 
 				if (Object.keys(Idata).length >= 8) break;
 				const city = All[Index].loc.split(" ")[0];
+				const id = All[Index].uuid.split("-")[2];
 				const CPGA = (Idata[city] == undefined) ? 0 : Idata[city];
-				const Json_station_v = Json.station ? Json.station[All[Index].uuid.split("-")[2]].v : Json[All[Index].uuid.split("-")[2]].v;
+				const Json_station_v = Json.station ? Json.station[id].v : Json[id].v;
 
 				if (Json_station_v > CPGA) {
 					if (Idata[city] == undefined) Idata[city] = {};
@@ -2771,12 +2886,12 @@ async function fetchFiles() {
 		dump({ level: 0, message: "Get Location File", origin: "Location" });
 
 		if (setting["Real-time.local"]) {
-			const station_data = require(path.resolve(__dirname, "../station.json"));
+			station_data = require(path.resolve(__dirname, "../station.json"));
 			station_v2_run(station_data);
 			log("Get Local Station File", 1, "Location", "fetchFiles");
 			dump({ level: 0, message: "Get Local Station File", origin: "Location" });
 		} else {
-			const station_data = await (await fetch("https://raw.githubusercontent.com/ExpTechTW/API/master/resource/station.json")).json();
+			station_data = await (await fetch("https://raw.githubusercontent.com/ExpTechTW/API/master/resource/station.json")).json();
 			station_v2_run(station_data);
 			log("Get Station File", 1, "Location", "fetchFiles");
 			dump({ level: 0, message: "Get Station File", origin: "Location" });
@@ -2798,12 +2913,12 @@ async function fetchFilesbackup() {
 		dump({ level: 0, message: "Get Location backup File", origin: "Location" });
 
 		if (setting["Real-time.local"]) {
-			const station_data = require(path.resolve(__dirname, "../station.json"));
+			station_data = require(path.resolve(__dirname, "../station.json"));
 			station_v2_run(station_data);
 			log("Get Local Station File", 1, "Location", "fetchFiles");
 			dump({ level: 0, message: "Get Local Station File", origin: "Location" });
 		} else {
-			const station_data = await (await fetch("https://cdn.jsdelivr.net/gh/ExpTechTW/API@master/resource/station.json")).json();
+			station_data = await (await fetch(route.tremStation(1))).json();
 			station_v2_run(station_data);
 			log("Get Station backup File", 1, "Location", "fetchFilesbackup");
 			dump({ level: 0, message: "Get Station backup File", origin: "Location" });
@@ -2825,12 +2940,12 @@ async function fetchFilesbackup0() {
 		dump({ level: 0, message: "Get Location backup File", origin: "Location" });
 
 		if (setting["Real-time.local"]) {
-			const station_data = require(path.resolve(__dirname, "../station.json"));
+			station_data = require(path.resolve(__dirname, "../station.json"));
 			station_v2_run(station_data);
 			log("Get Local Station File", 1, "Location", "fetchFiles");
 			dump({ level: 0, message: "Get Local Station File", origin: "Location" });
 		} else {
-			const station_data = await (await fetch(`${route.randomBaseFileUrl()}station.json`)).json();
+			station_data = await (await fetch(route.tremStation(1))).json();
 			station_v2_run(station_data);
 			log("Get Station backup File", 1, "Location", "fetchFilesbackup");
 			dump({ level: 0, message: "Get Station backup File", origin: "Location" });
@@ -2845,14 +2960,15 @@ async function fetchFilesbackup0() {
 	}
 }
 
-function station_v2_run(station_data) {
-	for (let k = 0, k_ks = Object.keys(station_data), n = k_ks.length; k < n; k++) {
+function station_v2_run(station_temp) {
+	for (let k = 0, k_ks = Object.keys(station_temp), n = k_ks.length; k < n; k++) {
 		const station_id = k_ks[k];
-		const station_ = station_data[station_id];
+		const station_ = station_temp[station_id];
 
-		if (!station_.work) continue;
+		//	if (!station_.work) continue;
 
 		const station_net = station_.net === "MS-Net" ? "H" : "L";
+		const work = station_.work;
 
 		let station_new_id = "";
 		let station_code = "000";
@@ -2905,7 +3021,7 @@ function station_v2_run(station_data) {
 			}
 		}
 
-		station[station_new_id] = { Lat, Long, Loc, area };
+		station[station_new_id] = { Lat, Long, Loc, area, work };
 	}
 }
 
@@ -3094,6 +3210,8 @@ function ReportGET(badcatch = false) {
 			storage.setItem("report_data", []);
 		}
 
+		const now_format = (time) => timeconvert(time).format("YYYY/MM/DD HH:mm:ss");
+
 		let _report_data = [];
 		_report_data = storage.getItem("report_data");
 
@@ -3125,6 +3243,14 @@ function ReportGET(badcatch = false) {
 			_report_data = _report_data_temp;
 		}
 
+		// for (let i_ = 0; i_ < _report_data.length; i_++)
+		// 	if (_report_data[i_])
+		// 		if (_report_data[i_].id)
+		// 			if (_report_data[i_].id.startsWith("CWB"))
+		// 				_report_data.splice(i_, 1);
+
+		// storage.setItem("report_data", _report_data);
+
 		// if (_report_data.length != 0)
 		// 	for (let i = 0; i < 50; i++) {
 		// 		const md5 = crypto.createHash("md5");
@@ -3134,19 +3260,19 @@ function ReportGET(badcatch = false) {
 		// let bodyInfo;
 
 		// if (setting["report.getInfo"])
-		// 	bodyInfo = JSON.stringify({ list, key: setting["api.key"] != "" ? setting["api.key"] : "" });
-		// else if (setting["api.key"] != "")
-		// 	bodyInfo = JSON.stringify({ list, key: setting["api.key"] });
+		// 	bodyInfo = JSON.stringify({ list, key: setting["exptech.key"] != "" ? setting["exptech.key"] : "" });
+		// else if (setting["exptech.key"] != "")
+		// 	bodyInfo = JSON.stringify({ list, key: setting["exptech.key"] });
 		// else
 		// bodyInfo = JSON.stringify({ list });
 
 		if (api_key_verify && setting["report.getInfo"] && !badcatch) {
-			route.setkey(setting["api.key"]);
+			route.setkey(setting["exptech.key"]);
 			const controller1 = new AbortController();
 			setTimeout(() => {
 				controller1.abort();
 			}, 5_000);
-			fetch(route.earthquakeReportList(50), { signal: controller1.signal })
+			fetch(route.earthquakeReportList(setting["cache.report"]), { signal: controller1.signal })
 				.then((ans0) => {
 					if (ans0.ok) {
 						console.debug(ans0);
@@ -3155,7 +3281,13 @@ function ReportGET(badcatch = false) {
 
 							if (ans.length != 0) {
 								for (let i = 0; i < ans.length; i++) {
-									const id = ans[i].id;
+									let id = ans[i].id;
+
+									if (id.startsWith("CWB")) {
+										id = id.match(/CWB-EQ(.*)/)[1];
+										ans[i].id = id;
+									}
+
 									ans[i].no = id.split("-")[0];
 
 									for (let _i = 0; _i < _report_data.length; _i++)
@@ -3181,7 +3313,8 @@ function ReportGET(badcatch = false) {
 
 												}
 
-												if (!_report_data[_i].no) _report_data[_i].no = _report_data[_i].id.split("-")[0];
+												if (_report_data && _report_data[_i] && !_report_data[_i].no && _report_data[_i].id !== undefined)
+													_report_data[_i].no = _report_data[_i].id.split("-")[0];
 
 											} else if (_report_data[_i].identifier) {
 												if (_report_data[_i].identifier === id)
@@ -3191,7 +3324,7 @@ function ReportGET(badcatch = false) {
 											}
 										}
 
-									ans[i].originTime = timeconvert(new Date(ans[i].time)).format("YYYY/MM/DD HH:mm:ss");
+									ans[i].originTime = now_format(new Date(ans[i].time));
 								}
 
 								for (let i = 0; i < ans.length; i++)
@@ -3338,7 +3471,7 @@ function ReportGET(badcatch = false) {
 			setTimeout(() => {
 				controller.abort();
 			}, 5_000);
-			fetch(route.earthquakeReportList(50), { signal: controller.signal })
+			fetch(route.earthquakeReportList(setting["cache.report"]), { signal: controller.signal })
 				.then((ans0) => {
 					if (ans0.ok) {
 						console.debug(ans0);
@@ -3347,7 +3480,13 @@ function ReportGET(badcatch = false) {
 
 							if (ans.length != 0) {
 								for (let i = 0; i < ans.length; i++) {
-									const id = ans[i].id;
+									let id = ans[i].id;
+
+									if (id.startsWith("CWB")) {
+										id = id.match(/CWB-EQ(.*)/)[1];
+										ans[i].id = id;
+									}
+
 									ans[i].no = id.split("-")[0];
 
 									for (let _i = 0; _i < _report_data.length; _i++)
@@ -3373,7 +3512,8 @@ function ReportGET(badcatch = false) {
 
 												}
 
-												if (!_report_data[_i].no) _report_data[_i].no = _report_data[_i].id.split("-")[0];
+												if (_report_data && _report_data[_i] && !_report_data[_i].no && _report_data[_i].id !== undefined)
+													_report_data[_i].no = _report_data[_i].id.split("-")[0];
 
 											} else if (_report_data[_i].identifier) {
 												if (_report_data[_i].identifier === id)
@@ -3383,7 +3523,7 @@ function ReportGET(badcatch = false) {
 											}
 										}
 
-									ans[i].originTime = timeconvert(new Date(ans[i].time)).format("YYYY/MM/DD HH:mm:ss");
+									ans[i].originTime = now_format(new Date(ans[i].time));
 								}
 
 								for (let i = 0; i < ans.length; i++)
@@ -3643,7 +3783,7 @@ function Report_GET() {
 					}
 				}
 
-			// if (setting["api.key"] != "") ReportGET();
+			// if (setting["exptech.key"] != "") ReportGET();
 			// else cacheReport(_report_data_GET_temp);
 			cacheReport(_report_data_GET_temp);
 		}
@@ -3681,6 +3821,8 @@ ipcRenderer.on("ReportTREM", () => {
 });
 
 function cacheReport(_report_data_GET) {
+	const now_format = (time) => timeconvert(time).format("YYYY/MM/DD HH:mm:ss");
+
 	if (_report_data_GET.length > setting["cache.report"]) {
 		const _report_data_temp = [];
 
@@ -3692,7 +3834,7 @@ function cacheReport(_report_data_GET) {
 		if (Report != 0)
 			ReportList(_report_data_temp, {
 				Max  : TREM.MapIntensity.MaxI,
-				Time : timeconvert(new Date(Report)).format("YYYY/MM/DD HH:mm:ss"),
+				Time : now_format(new Date(Report)),
 			});
 		else
 			ReportList(_report_data_temp);
@@ -3702,7 +3844,7 @@ function cacheReport(_report_data_GET) {
 		if (Report != 0)
 			ReportList(_report_data_GET, {
 				Max  : TREM.MapIntensity.MaxI,
-				Time : timeconvert(new Date(Report)).format("YYYY/MM/DD HH:mm:ss"),
+				Time : now_format(new Date(Report)),
 			});
 		else
 			ReportList(_report_data_GET);
@@ -3738,7 +3880,7 @@ function addReport(report, prepend = false, index = 0, palert = false) {
 	if (replay != 0 && OriginTime > new Date(replay + (NOW().getTime() - replayT)).getTime()) return;
 
 	const Level = report.int ? IntensityI(report.int) : IntensityI(report.data[0]?.areaIntensity);
-	// if (setting["api.key"] == "" && Level == "?") return;
+	// if (setting["exptech.key"] == "" && Level == "?") return;
 	let msg = "";
 	let star = "";
 
@@ -3841,7 +3983,7 @@ function addReport(report, prepend = false, index = 0, palert = false) {
 		roll.prepend(Div);
 		investigation = true;
 	} else {
-		const timed = new Date(report.originTime.replace(/-/g, "/")).getTime() - 5000;
+		const timed = OriginTime - 5000;
 		const timed_hold = String(timed);
 		fs.access(`${path.join(path.join(app.getPath("userData"), "replay_data"), timed_hold)}/${timed / 1000}.trem`, (err) => {
 			if (!err) {
@@ -3997,19 +4139,24 @@ function addReport(report, prepend = false, index = 0, palert = false) {
 			let _report_data = [];
 			_report_data = storage.getItem("report_data");
 
-			if (typeof _report_data != "object") _report_data = [];
-
-			if (_report_data == null) _report_data = [];
+			for (let _i = 0; _i < _report_data.length; _i++)
+				if (_report_data[_i].id)
+					if (_report_data[_i].id === report.id)
+						_report_data.splice(_i, 1);
 
 			_report_data.push(report);
 
 			for (let i = 0; i < _report_data.length - 1; i++)
-				for (let _i = 0; _i < _report_data.length - 1; _i++)
-					if (new Date(_report_data[_i].originTime.replaceAll("/", "-")).getTime() < new Date(_report_data[_i + 1].originTime.replaceAll("/", "-")).getTime()) {
+				for (let _i = 0; _i < _report_data.length - 1; _i++) {
+					const time_temp = _report_data[_i].originTime ? new Date(_report_data[_i].originTime).getTime() : _report_data[_i].time;
+					const time_1_temp = _report_data[_i + 1].originTime ? new Date(_report_data[_i + 1].originTime).getTime() : _report_data[_i + 1].time;
+
+					if (time_temp < time_1_temp) {
 						const temp = _report_data[_i + 1];
 						_report_data[_i + 1] = _report_data[_i];
 						_report_data[_i] = temp;
 					}
+				}
 
 			storage.setItem("report_data", _report_data);
 		} else {
@@ -4214,86 +4361,24 @@ TREM.color = function color(Intensity) {
 // #endregion
 
 let rts_clock = null;
+let p2p_mode_status = false;
 
 // #region IPC
 ipcRenderer.on("start", () => {
 	try {
-		if (!(rts_key_verify ? storage.getItem("disclaimer_off") : false) && !rts_key_verify) {
-			showDialog(
-				"warn",
-				"免責聲明",
-				`• TREMV 進階功能中的資訊屬於特定使用者使用，與最終非特定使用者中的資訊可能存有若干差異，請所有使用者理解並謹慎使用。\n
-				• 強震即時警報是利用少數幾個地震測站快速演算之結果，與最終地震報告可能存有若干差異，請所有使用者理解並謹慎使用。\n
-				• 本軟體使用P2P的連線技術傳遞資料，您的電腦將會把收到的地震資訊轉傳給其他人的電腦，如此才能降低伺服器負荷與維持費用，也才能免費地提供服務給大家使用。若您開始使用本軟體則代表您已同意使用P2P連線技術將收到的資料轉傳給其他電腦。\n
-				• 任何資訊均以 中央氣象署(CWA) 發布之內容為準\n
-				• Powered by ExpTech | 2023/11/03`,
-				0,
-				"warning",
-				() => {
-					if (setting["p2p.mode"]) serverinit();
-					setTimeout(() => {
-						if (localStorage.TOS_v1_2 == undefined)
-							showDialog(
-								"warn",
-								"TOS 服務條款 1.2",
-								`• 使用本服務應視為用戶同意使用條款\n
-								• TREMV 是一款提供 地震檢知、地震預警、海嘯警報、震度速報、地震報告 的軟體\n
-								• 禁止在未經允許的情況下二次分發 TREMV 軟體內的任何資訊\n
-								• 禁止轉售 TREMV 提供之資訊\n
-								• 禁止違反法律法規或違反公共秩序和道德的行為\n
-								• 除以上條款外 任何開發團隊合理認為不適當的行為均不被允許\n
-								• TREMV 使用 P2P 技術傳遞資訊\n
-								• 任何資訊均以 中央氣象署(CWA) 發布之內容為準\n
-								• Powered by ExpTech | 2023/11/03`,
-								0,
-								"warning",
-								() => {
-									localStorage.TOS_v1_2 = true;
-								},
-								"我已詳細閱讀 並同意上述條款",
-								"",
-								() => void 0,
-								0,
-								1);
-					}, 1000);
-				},
-				"我已詳細閱讀 並同意上述免責聲明",
-				"",
-				() => void 0,
-				0,
-				1);
-		} else {
-			if (setting["p2p.mode"]) serverinit();
-			setTimeout(() => {
-				if (localStorage.TOS_v1_2 == undefined)
-					showDialog(
-						"warn",
-						"TOS 服務條款 1.2",
-						`• 使用本服務應視為用戶同意使用條款\n
-						• TREMV 是一款提供 地震檢知、地震預警、海嘯警報、震度速報、地震報告 的軟體\n
-						• 禁止在未經允許的情況下二次分發 TREMV 軟體內的任何資訊\n
-						• 禁止轉售 TREMV 提供之資訊\n
-						• 禁止違反法律法規或違反公共秩序和道德的行為\n
-						• 除以上條款外 任何開發團隊合理認為不適當的行為均不被允許\n
-						• TREMV 使用 P2P 技術傳遞資訊\n
-						• 任何資訊均以 中央氣象署(CWA) 發布之內容為準\n
-						• Powered by ExpTech | 2023/11/03`,
-						0,
-						"warning",
-						() => {
-							localStorage.TOS_v1_2 = true;
-						},
-						"我已詳細閱讀 並同意上述條款",
-						"",
-						() => void 0,
-						0,
-						1);
-			}, 1000);
-		}
+		if (!(rts_key_verify ? storage.getItem("disclaimer_off") : false) && !rts_key_verify)
+			getp2pTOS();
+		else
+			getp2pTOSrun();
 
 		if (localStorage.rts_alert_false == undefined) {
 			localStorage.rts_alert_false = true;
 			ipcRenderer.send("config:value", "Real-time.alert", false);
+		}
+
+		if (localStorage.Real_time_local == undefined) {
+			localStorage.Real_time_local = true;
+			ipcRenderer.send("config:value", "Real-time.local", false);
 		}
 
 		setInterval(() => {
@@ -4314,6 +4399,64 @@ ipcRenderer.on("start", () => {
 		dump({ level: 2, message: error, origin: "Initialization" });
 	}
 });
+
+function getp2pTOSrun() {
+	if (setting["p2p.mode"] && !p2p_mode_status) {
+		p2p_mode_status = true;
+		serverinit();
+	}
+
+	setTimeout(() => {
+		getTOS();
+	}, 1000);
+}
+
+function getp2pTOS() {
+	showDialog(
+		"warn",
+		"免責聲明",
+		`• TREMV 進階功能中的資訊屬於特定使用者使用，與最終非特定使用者中的資訊可能存有若干差異，請所有使用者理解並謹慎使用。\n
+		• 強震即時警報是利用少數幾個地震測站快速演算之結果，與最終地震報告可能存有若干差異，請所有使用者理解並謹慎使用。\n
+		• 本軟體使用P2P的連線技術傳遞資料，您的電腦將會把收到的地震資訊轉傳給其他人的電腦，如此才能降低伺服器負荷與維持費用，也才能免費地提供服務給大家使用。若您開始使用本軟體則代表您已同意使用P2P連線技術將收到的資料轉傳給其他電腦。\n
+		• 任何資訊均以 中央氣象署(CWA) 發布之內容為準\n
+		• Powered by ExpTech | 2023/11/03`,
+		0,
+		"warning",
+		() => {
+			getp2pTOSrun();
+		},
+		"我已詳細閱讀 並同意上述免責聲明",
+		"",
+		() => void 0,
+		0,
+		1);
+}
+
+function getTOS() {
+	if (localStorage.TOS_v1_2 == undefined)
+		showDialog(
+			"warn",
+			"TOS 服務條款 1.2",
+			`• 使用本服務應視為用戶同意使用條款\n
+			• TREMV 是一款提供 地震檢知、地震預警、海嘯警報、震度速報、地震報告 的軟體\n
+			• 禁止在未經允許的情況下二次分發 TREMV 軟體內的任何資訊\n
+			• 禁止轉售 TREMV 提供之資訊\n
+			• 禁止違反法律法規或違反公共秩序和道德的行為\n
+			• 除以上條款外 任何開發團隊合理認為不適當的行為均不被允許\n
+			• TREMV 使用 P2P 技術傳遞資訊\n
+			• 任何資訊均以 中央氣象署(CWA) 發布之內容為準\n
+			• Powered by ExpTech | 2023/11/03`,
+			0,
+			"warning",
+			() => {
+				localStorage.TOS_v1_2 = true;
+			},
+			"我已詳細閱讀 並同意上述條款",
+			"",
+			() => void 0,
+			0,
+			1);
+}
 
 function freertsget(rts_key_verify_f = false) {
 	if (!rts_key_verify || rts_key_verify_f) {
@@ -4388,6 +4531,7 @@ const stopReplay = function() {
 	WarnAudio = Date.now() + 3000;
 
 	stationnow = 0;
+	stationnowall = 0;
 
 	if (TREM.speech.speaking()) TREM.speech.cancel();
 
@@ -4471,8 +4615,8 @@ ipcRenderer.on("sleep", (event, mode) => {
 		sleep(mode);
 });
 
-ipcRenderer.on("apikey", () => {
-	apikey();
+ipcRenderer.on("apikey", (event, data) => {
+	apikey(false, data);
 });
 
 ipcRenderer.on("report-Notification", (event, report) => {
@@ -5033,7 +5177,7 @@ function FCMdata(json, Unit) {
 	if (server_timestamp.includes(json.timestamp) || NOW().getTime() - json.timestamp > 180_000) return;
 	server_timestamp.push(json.timestamp);
 
-	if (server_timestamp.length > 15) server_timestamp.splice(0, 1);
+	if (server_timestamp.length > 30) server_timestamp.splice(0, 1);
 	// eslint-disable-next-line no-empty-function
 	fs.writeFile(path.join(app.getPath("userData"), "server.json"), JSON.stringify(server_timestamp), () => {});
 	// GetData = true;
@@ -5070,10 +5214,10 @@ function FCMdata(json, Unit) {
 		TREM.Earthquake.emit("tsunami", json);
 	} else if (json.type == "trem-eq") {
 		TREM.Earthquake.emit("trem-eq", json);
-	} else if (json.type == "palert") {
-		TREM.MapIntensity.palert(json);
-	} else if (json.type == "palert-app") {
-		console.debug(json);
+	// } else if (json.type == "palert") {
+	// 	TREM.MapIntensity.palert(json);
+	// } else if (json.type == "palert-app") {
+	// 	console.debug(json);
 	} else if (json.type == "pws") {
 		TREM.PWS.addPWS(json.raw);
 	} else if (json.type == "intensity") {
@@ -5498,6 +5642,8 @@ TREM.Earthquake.on("eew", (data) => {
 				MaxIntensity = int;
 		}
 
+	if (data.eq && data.eq.max) MaxIntensity = { label: TREM.Constants.intensities[data.eq.max].label, value: data.eq.max };
+
 	// TREM.MapIntensity.expected(GC);
 
 	let Alert = true;
@@ -5562,7 +5708,7 @@ TREM.Earthquake.on("eew", (data) => {
 			TREM.speech.speak({ text: `${data.Unit}，已取消警報` });
 		}
 
-		if (data.type == "eew-cwb")
+		if (data.author == "cwa")
 			if (data.location.includes("海") && Number(data.depth) <= 35)
 				if (Number(speecd_scale) >= 7 && speecd_number == 1)
 					TREM.speech.speak({ text: "震源位置及規模表明，可能發生海嘯，沿岸地區應慎防海水位突變，並留意中央氣象署是否發布，海嘯警報" });
@@ -5603,7 +5749,7 @@ TREM.Earthquake.on("eew", (data) => {
 
 		eewt.id = data.id;
 
-		if (data.type != "trem-eew" || data.author != "trem")
+		if (data.author != "trem")
 			if (setting["audio.eew"] && Alert) {
 				log("Playing Audio > eew", 1, "Audio", "eew");
 				dump({ level: 0, message: "Playing Audio > eew", origin: "Audio" });
@@ -5632,7 +5778,7 @@ TREM.Earthquake.on("eew", (data) => {
 			}
 	}
 
-	if (data.type != "trem-eew" || data.author != "trem")
+	if (data.author != "trem")
 		if (MaxIntensity.value >= 5) {
 			data.Alert = true;
 
@@ -5689,7 +5835,7 @@ TREM.Earthquake.on("eew", (data) => {
 		eew[data.id].arrive = "";
 	}
 
-	if (data.type != "trem-eew" || data.author != "trem")
+	if (data.author != "trem")
 		if (eew[data.id].Second == -1 || eew[data.id].value < eew[data.id].Second)
 			if (setting["audio.eew"] && Alert)
 				if (eew[data.id].arrive == "") {
@@ -5778,7 +5924,7 @@ TREM.Earthquake.on("eew", (data) => {
 	INFO[find] = {
 		ID              : data.id,
 		alert_number    : data.number,
-		alert_intensity : (data.type == "trem-eew" || data.author == "trem") ? data.max ? data.max : data.eq.max ?? 0 : MaxIntensity.value,
+		alert_intensity : (data.type == "trem-eew" || data.author == "trem") ? (data.max ? data.max : data.eq.max ?? 0) : MaxIntensity.value,
 		alert_location  : data.location ?? "未知區域",
 		alert_time      : time,
 		alert_sTime     : data.depth ? Math.floor(data.time + _speed(data.depth, distance).Stime * 1000) : null,
@@ -5949,7 +6095,7 @@ TREM.Earthquake.on("eew", (data) => {
 					log(error, 3, "Webhook", "eew");
 					dump({ level: 2, message: error, origin: "Webhook" });
 				});
-			} else if (setting["trem-eew.No-Notification"] && (data.type != "trem-eew" || data.author != "trem")) {
+			} else if (setting["trem-eew.No-Notification"] && (data.author != "trem")) {
 				const Now1 = NOW().getFullYear()
 					+ "/" + (NOW().getMonth() + 1)
 					+ "/" + NOW().getDate()
@@ -6216,7 +6362,7 @@ function main(data) {
 		showDialogtime.close();
 	}
 
-	if (TREM.EEW.get(INFO[TINFO]?.ID).Cancel == undefined && ((setting["trem.ps"] && (data.type == "trem-eew" || data.author == "trem")) || (data.type != "trem-eew" || data.author != "trem"))) {
+	if (TREM.EEW.get(INFO[TINFO]?.ID).Cancel == undefined && ((setting["trem.ps"] && (data.type == "trem-eew" || data.author == "trem")) || (data.author != "trem"))) {
 		if (data.depth != null) {
 
 			/**
