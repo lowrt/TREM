@@ -94,7 +94,7 @@ const showDialog
  * @param {int} time time type of the dialog
  * @param {int} containerlock containerlock type of the dialog
  */
-= (type, title, message, button = 0, customIcon, callback = () => void 0, buttonAccepttext, buttonCanceltext, callbackCancel = () => void 0, time = 0, containerlock = 0) => {
+= (type, title, message, button = 0, customIcon, callback = () => void 0, buttonAccepttext, buttonCanceltext, callbackCancel = () => void 0, time = 0, containerlock = 0, callbackEnd = () => void 0) => {
 	if (showDialog_run) return;
 	showDialog_run = true;
 	const container = document.getElementById("modal-overlay");
@@ -190,6 +190,7 @@ const showDialog
 			}
 
 			closeDialog(...args);
+			callbackEnd();
 		};
 
 	$("#modal-overlay").fadeIn(50);
@@ -326,5 +327,74 @@ const storage = {
 };
 
 storage.init();
+
+const BASE_URL = "https://api.exptech.com.tw/api/v3/et/";
+
+async function login(data, name) {
+	try {
+		const response = await fetch(`${BASE_URL}login`, {
+			method  : "POST",
+			headers : { "Content-Type": "application/json" },
+			body    : JSON.stringify(data),
+		});
+		const ans = await response.text();
+
+		if (!response.ok) throw new Error(`${response.status} ${ans}`);
+		return ans;
+	} catch (err) {
+		console.log(err);
+
+		if (name == "rts")
+			showDialog("error",
+				TREM.Localization.getString("exptech_login_Title"),
+				TREM.Localization.getString("exptech_login_error"),
+				0, "error", () => {
+					const key = "";
+					ipcRenderer.send("config:value", "exptech.key", key);
+				}, "OK", "", () => void 0, 0, 0, () => {
+					const key = "";
+					ipcRenderer.send("config:value", "exptech.key", key);
+				});
+		else if (name == "rtw")
+			showDialog("error",
+				TREM.Localization.getString("exptech_rtw_login_Title"),
+				TREM.Localization.getString("exptech_rtw_login_error"),
+				0, "error", () => {
+					const key = "";
+					ipcRenderer.send("config:value", "rtw.exptech.key", key);
+				}, "OK", "", () => void 0, 0, 0, () => {
+					const key = "";
+					ipcRenderer.send("config:value", "rtw.exptech.key", key);
+				});
+		return "";
+	}
+}
+
+async function logout(KEY, name) {
+	try {
+		const response = await fetch(`${BASE_URL}logout`, {
+			method  : "DELETE",
+			headers : { Authorization: `Basic ${KEY}` },
+		});
+		const ans = await response.text();
+
+		if (!response.ok) throw new Error(`${response.status} ${ans}`);
+		return ans;
+	} catch (err) {
+		console.log(err);
+
+		if (name == "rts")
+			showDialog("error",
+				TREM.Localization.getString("exptech_logout_Title"),
+				TREM.Localization.getString("exptech_logout_error"),
+				0, "error", () => void 0, "OK", "", () => void 0, 0, 0, () => void 0);
+		else if (name == "rtw")
+			showDialog("error",
+				TREM.Localization.getString("exptech_rtw_logout_Title"),
+				TREM.Localization.getString("exptech_rtw_logout_error"),
+				0, "error", () => void 0, "OK", "", () => void 0, 0, 0, () => void 0);
+		return "";
+	}
+}
 
 // #endregion

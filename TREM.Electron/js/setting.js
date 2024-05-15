@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 const { getCurrentWindow } = require("@electron/remote");
 const axios = require("axios");
 const os = require("node:os");
@@ -50,7 +51,7 @@ function handleWindowControls() {
 
 document.getElementById("client-version").innerText = `${app.getVersion()}`;
 document.getElementById("client-os").innerText = `${os.version()} (${os.release()})`;
-// document.getElementById("client-key").title = `${setting["api.key"]}`;
+// document.getElementById("client-key").title = `${setting["exptech.key"]}`;
 
 const openURL = url => {
 	ipcRenderer.send("openURL", url);
@@ -82,6 +83,9 @@ ipcRenderer.on("settingError", (event, error) => {
 });
 
 const station = {};
+
+let keyhave = false;
+let keyhave_rtw = false;
 
 /**
  * 初始化設定
@@ -139,18 +143,6 @@ function init() {
 						else
 							$("#intensity-palette-container").addClass("hide");
 
-					if (id == "api.key.Hide")
-						if (setting[id])
-							document.getElementById("api.key").type = "password";
-						else
-							document.getElementById("api.key").type = "text";
-
-					if (id == "rtw.api.key.Hide")
-						if (setting[id])
-							document.getElementById("rtw.api.key").type = "password";
-						else
-							document.getElementById("rtw.api.key").type = "text";
-
 					if (id == "exptech.name.Hide")
 						if (setting[id])
 							document.getElementById("exptech.name").type = "password";
@@ -182,7 +174,7 @@ function init() {
 				const element = document.getElementById(id);
 
 				if (element) {
-					// if (id == "api.key")
+					// if (id == "exptech.key")
 					// 	element.placeholder = "•".repeat(setting[id].length);
 					// else
 					element.value = setting[id];
@@ -321,7 +313,7 @@ function init() {
 		}
 
 		if (!station) {
-			const station_data = await (await fetch(`${route.randomBaseFileUrl()}station.json`)).json();
+			const station_data = await (await fetch(route.tremStation(1))).json();
 			station_v2_run(station_data);
 		}
 
@@ -428,13 +420,37 @@ function init() {
 	// #endregion
 
 	// document.getElementById("client-key").addEventListener("click", () => {
-	// 	navigator.clipboard.writeText(`${setting["api.key"]}`).then(() => {
-	// 		console.debug(`${setting["api.key"]}`);
+	// 	navigator.clipboard.writeText(`${setting["exptech.key"]}`).then(() => {
+	// 		console.debug(`${setting["exptech.key"]}`);
 	// 		console.debug("複製成功");
 	// 	});
 	// });
 
 	stream_mode(setting["stream.mode"]);
+
+	if (setting["exptech.key"]) {
+		// 選取按鈕元素
+		const button = document.getElementById("exptech.login");
+
+		// 選取 <span> 元素
+		const span = button.querySelector(".filled-tonal-button-label > span");
+
+		// 更改 <span> 文字
+		span.textContent = "登出";
+		keyhave = true;
+	}
+
+	if (setting["rtw.exptech.key"]) {
+		// 選取按鈕元素
+		const button = document.getElementById("exptech.rtw.login");
+
+		// 選取 <span> 元素
+		const span = button.querySelector(".filled-tonal-button-label > span");
+
+		// 更改 <span> 文字
+		span.textContent = "登出";
+		keyhave_rtw = true;
+	}
 }
 
 function station_v2_run(station_data) {
@@ -442,9 +458,10 @@ function station_v2_run(station_data) {
 		const station_id = k_ks[k];
 		const station_ = station_data[station_id];
 
-		if (!station_.work) continue;
+		//	if (!station_.work) continue;
 
 		const station_net = station_.net === "MS-Net" ? "H" : "L";
+		const work = station_.work;
 
 		let station_new_id = "";
 		let station_code = "000";
@@ -497,7 +514,7 @@ function station_v2_run(station_data) {
 			}
 		}
 
-		station[station_new_id] = { Lat, Long, Loc, area };
+		station[station_new_id] = { Lat, Long, Loc, area, work };
 	}
 }
 
@@ -643,15 +660,15 @@ function stream_mode(value) {
 		document.getElementById("report.onlycwachangeView").checked = true;
 		document.getElementById("report.onlycwachangeView").disabled = true;
 		ipcRenderer.send("config:value", "report.onlycwachangeView", true);
-		document.getElementById("report.getInfo").checked = false;
-		document.getElementById("report.getInfo").disabled = true;
-		ipcRenderer.send("config:value", "report.getInfo", false);
+		// document.getElementById("report.getInfo").checked = false;
+		// document.getElementById("report.getInfo").disabled = true;
+		// ipcRenderer.send("config:value", "report.getInfo", false);
 		document.getElementById("report.trem").checked = false;
 		document.getElementById("report.trem").disabled = true;
 		ipcRenderer.send("config:value", "report.trem", false);
-		document.getElementById("Real-time.alert").checked = false;
-		document.getElementById("Real-time.alert").disabled = true;
-		ipcRenderer.send("config:value", "Real-time.alert", false);
+		// document.getElementById("Real-time.alert").checked = false;
+		// document.getElementById("Real-time.alert").disabled = true;
+		// ipcRenderer.send("config:value", "Real-time.alert", false);
 		document.getElementById("trem.ps").checked = false;
 		document.getElementById("trem.ps").disabled = true;
 		ipcRenderer.send("config:value", "trem.ps", false);
@@ -661,9 +678,9 @@ function stream_mode(value) {
 	} else if (!value) {
 		document.getElementById("report.changeView").disabled = false;
 		document.getElementById("report.onlycwachangeView").disabled = false;
-		document.getElementById("report.getInfo").disabled = false;
+		// document.getElementById("report.getInfo").disabled = false;
 		document.getElementById("report.trem").disabled = false;
-		document.getElementById("Real-time.alert").disabled = false;
+		// document.getElementById("Real-time.alert").disabled = false;
 		document.getElementById("trem.ps").disabled = false;
 		document.getElementById("accept.eew.trem").disabled = false;
 	}
@@ -765,18 +782,6 @@ function CheckSave(id) {
 function CheckHide(id) {
 	const value = document.getElementById(id).checked;
 
-	if (id == "api.key.Hide")
-		if (value)
-			document.getElementById("api.key").type = "password";
-		else
-			document.getElementById("api.key").type = "text";
-
-	if (id == "rtw.api.key.Hide")
-		if (value)
-			document.getElementById("rtw.api.key").type = "password";
-		else
-			document.getElementById("rtw.api.key").type = "text";
-
 	if (id == "exptech.name.Hide")
 		if (value)
 			document.getElementById("exptech.name").type = "password";
@@ -802,7 +807,7 @@ function TextSave(id) {
 	log(`Value Changed ${id}: ${setting[id]} -> ${value}`, 1, "Setting", "TextSave");
 	dump({ level: 0, message: `Value Changed ${id}: ${setting[id]} -> ${value}`, origin: "Setting" });
 
-	if (id == "api.key")
+	if (id == "exptech.key")
 		if (value.length == 30)
 			ipcRenderer.send("config:value", id, value);
 		else if (value.length == 0)
@@ -1960,6 +1965,120 @@ ipcRenderer.on("p2p6", (event, data, server_ips) => {
 	p2p_out_num_span.innerText = `v6發送連接數 : ${data.out.length}`;
 	p2p_out_num.append(p2p_out_num_span);
 });
+
+async function exptechlogin() {
+	const EMAIL = document.getElementById("exptech.email").value;
+
+	if (!keyhave) {
+		const PASS = document.getElementById("exptech.pass").value;
+		const NAME = `${document.getElementById("exptech.name").value}/TREMV/${app.getVersion()}/${os.release()}`;
+		// console.log(EMAIL);
+		// console.log(PASS);
+		// console.log(NAME);
+		const key = await login({ email: EMAIL, pass: PASS, name: NAME }, "rts");
+
+		if (key != "") {
+			showDialog("success",
+				TREM.Localization.getString("exptech_login_Title"),
+				TREM.Localization.getString("exptech_login_success"),
+				0, "check", () => {
+					ipcRenderer.send("config:value", "exptech.key", key);
+				}, "OK", "", () => void 0, 0, 0, () => {
+					ipcRenderer.send("config:value", "exptech.key", key);
+				});
+			// 選取按鈕元素
+			const button = document.getElementById("exptech.login");
+
+			// 選取 <span> 元素
+			const span = button.querySelector(".filled-tonal-button-label > span");
+
+			// 更改 <span> 文字
+			span.textContent = "登出";
+			keyhave = true;
+		}
+	} else if (setting["exptech.key"]) {
+		const KEY = setting["exptech.key"];
+		const out = await logout(KEY, "rts");
+
+		if (out != "") {
+			console.log("ok");
+			showDialog("success",
+				TREM.Localization.getString("exptech_logout_Title"),
+				TREM.Localization.getString("exptech_logout_success"),
+				0, "check", () => {
+					ipcRenderer.send("config:value", "exptech.key", "");
+				}, "OK", "", () => void 0, 0, 0, () => {
+					ipcRenderer.send("config:value", "exptech.key", "");
+				});
+			// 選取按鈕元素
+			const button = document.getElementById("exptech.login");
+
+			// 選取 <span> 元素
+			const span = button.querySelector(".filled-tonal-button-label > span");
+
+			// 更改 <span> 文字
+			span.textContent = "登入";
+			keyhave = false;
+		}
+	}
+}
+
+async function exptechrtwlogin() {
+	const EMAIL = document.getElementById("exptech.email").value;
+
+	if (!keyhave_rtw) {
+		const PASS = document.getElementById("exptech.pass").value;
+		const NAME = `${document.getElementById("exptech.name").value}/TREMV-rtw/${app.getVersion()}/${os.release()}`;
+		// console.log(EMAIL);
+		// console.log(PASS);
+		// console.log(NAME);
+		const key = await login({ email: EMAIL, pass: PASS, name: NAME }, "rtw");
+
+		if (key != "") {
+			showDialog("success",
+				TREM.Localization.getString("exptech_rtw_login_Title"),
+				TREM.Localization.getString("exptech_rtw_login_success"),
+				0, "check", () => {
+					ipcRenderer.send("config:value", "rtw.exptech.key", key);
+				}, "OK", "", () => void 0, 0, 0, () => {
+					ipcRenderer.send("config:value", "rtw.exptech.key", key);
+				});
+			// 選取按鈕元素
+			const button = document.getElementById("exptech.rtw.login");
+
+			// 選取 <span> 元素
+			const span = button.querySelector(".filled-tonal-button-label > span");
+
+			// 更改 <span> 文字
+			span.textContent = "登出";
+			keyhave_rtw = true;
+		}
+	} else if (setting["rtw.exptech.key"]) {
+		const KEY = setting["rtw.exptech.key"];
+		const out = await logout(KEY, "rtw");
+
+		if (out != "") {
+			console.log("ok");
+			showDialog("success",
+				TREM.Localization.getString("exptech_rtw_logout_Title"),
+				TREM.Localization.getString("exptech_rtw_logout_success"),
+				0, "check", () => {
+					ipcRenderer.send("config:value", "rtw.exptech.key", "");
+				}, "OK", "", () => void 0, 0, 0, () => {
+					ipcRenderer.send("config:value", "rtw.exptech.key", "");
+				});
+			// 選取按鈕元素
+			const button = document.getElementById("exptech.rtw.login");
+
+			// 選取 <span> 元素
+			const span = button.querySelector(".filled-tonal-button-label > span");
+
+			// 更改 <span> 文字
+			span.textContent = "登入";
+			keyhave_rtw = false;
+		}
+	}
+}
 
 /*
 // register the handler
