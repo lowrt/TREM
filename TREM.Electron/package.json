@@ -92,7 +92,7 @@
     "eslint": "^8.57.0"
   },
   "dependencies": {
-    "@electron/remote": "^2.0.12",
+    "@electron/remote": "^2.1.2",
     "@material/material-color-utilities": "^0.2.0",
     "@turf/circle": "^6.5.0",
     "axios": "^1.6.7",
